@@ -7,6 +7,11 @@
     <string name="stop_surfing">停止衝浪</string>
     <string name="settings">設定</string>
 
+    <string name="go_to_surfing_space">請先前往廣告點擊網頁</string>
+    <string name="surfing_stopped">廣告衝浪已停止</string>
+
     <string name="url_mfs_home">http://www.myfreeshares.com/pages/enternew.php</string>
+    <string name="ad_worth_text">The ad above is worth</string>
+    <string name="no_ads_available">Sorry, no ads are available for you to click on this page at this time</string>
 
 </resources>
