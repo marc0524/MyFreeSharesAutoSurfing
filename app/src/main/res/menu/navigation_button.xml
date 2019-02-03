@@ -4,17 +4,17 @@
 
     <item
             android:id="@+id/navHome"
-            android:icon="@drawable/profile"
+            android:icon="@drawable/icon_mfs_home"
             android:title="@string/mfs_home"/>
 
     <item
             android:id="@+id/navStartStop"
-            android:icon="@drawable/profile"
+            android:icon="@drawable/icon_start"
             android:title="@string/start_surfing"/>
 
     <item
             android:id="@+id/navSettings"
-            android:icon="@drawable/profile"
+            android:icon="@drawable/icon_settings"
             android:title="@string/settings"/>
 
 </menu>

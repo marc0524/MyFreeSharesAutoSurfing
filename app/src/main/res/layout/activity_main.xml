@@ -13,7 +13,8 @@
             android:layout_height="wrap_content"
             android:layout_alignParentTop="true"
             android:padding="6dp"
-            android:background="#f0f0f0"
+            android:background="@color/status_bar_background"
+            android:text="@string/stand_by"
             android:textSize="18sp"/>
 
     <WebView
@@ -28,7 +29,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:background="#f0f0f0"
+            android:background="@color/navigation_bar_background"
             app:menu="@menu/navigation_button"/>
 
 </RelativeLayout>

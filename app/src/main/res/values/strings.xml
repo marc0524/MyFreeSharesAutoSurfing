@@ -6,17 +6,20 @@
     <string name="start_surfing">開始衝浪</string>
     <string name="stop_surfing">停止衝浪</string>
     <string name="settings">設定</string>
+    <string name="stand_by">衝浪程式待命中</string>
 
     <string name="go_to_surfing_space">請先前往廣告點擊網頁</string>
     <string name="landing_home_already">您已經在MFS首頁了</string>
     <string name="loading_ad_list">正在讀取列表，請等待網頁重新載入</string>
     <string name="surfing_stopped">廣告衝浪已停止</string>
+    <string name="checking_left_ads">正在確認剩餘廣告</string>
     <string name="ad_clear">已經瀏覽完所有廣告</string>
     <string name="no_ad_can_browse">已經沒有廣告可瀏覽</string>
 
-    <string name="url_mfs_home">http://www.myfreeshares.com/pages/enternew.php</string>
-    <string name="ad_worth_text">The ad above is worth</string>
-    <string name="no_ads_available">Sorry, no ads are available for you to click on this page at this time</string>
-    <string name="turing_test_text">Please click the matching number to continue to the advertisement.</string>
+    <string name="url_mfs_home">http://myfreeshares.com/pages/enternew.php</string>
+    <string name="page_text_ad_worth">The ad above is worth</string>
+    <string name="page_text_no_ads_available">Sorry, no ads are available for you to click on this page at this time</string>
+    <string name="page_text_turing_test">Please click the matching number to continue to the advertisement</string>
+    <string name="page_text_account_credited">Your account has been credited</string>
 
 </resources>

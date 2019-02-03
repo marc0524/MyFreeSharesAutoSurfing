@@ -31,10 +31,13 @@ class MainActivity : AppCompatActivity() {
     private var turingNumberUrlStack: Stack<String> = Stack()
 
     private lateinit var selectedAdPage: AdPage
+    private lateinit var selectedAdHomeUrl: String
 
     private var isSurfRunning: Boolean = false
+    private var hasAdSinceLastCheck: Boolean = false
 
     private lateinit var thread: Thread
+    private lateinit var timerThread: Thread
 
     private val THREAD_KEY_OPERATION_WRAPPER = "operationWrapper"
 
@@ -59,7 +62,10 @@ class MainActivity : AppCompatActivity() {
             when(item.itemId) {
                 R.id.navHome -> goMFSHome()
                 R.id.navStartStop -> switchSurfingOperation(item)
-                R.id.navSettings -> Toast.makeText(applicationContext, item.title, Toast.LENGTH_SHORT).show()
+                R.id.navSettings -> {
+                    updateStatus(getString(R.string.stand_by))
+                    Toast.makeText(applicationContext, item.title, Toast.LENGTH_SHORT).show()
+                }
             }
             true
         }
@@ -76,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         if (StringUtils.equals(webView.originalUrl, getString(R.string.url_mfs_home))) {
             Toast.makeText(applicationContext, getString(R.string.landing_home_already), Toast.LENGTH_SHORT).show()
         } else {
+            updateStatus(getString(R.string.stand_by))
             webView.webViewClient = WebViewClient()
             webView.loadUrl(getString(R.string.url_mfs_home))
         }
@@ -83,8 +90,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchSurfingOperation(item: MenuItem) {
         if (isSurfRunning) {
-            item.title = getString(R.string.start_surfing)
+            stopTimer()
+
             updateStatus(getString(R.string.surfing_stopped))
+            with(item) {
+                title = getString(R.string.start_surfing)
+                setIcon(R.drawable.icon_start)
+            }
+
             webView.webViewClient = WebViewClient()
         } else {
             if (SurfingSpace.fromUrlStartWith(webView.originalUrl) == null) {
@@ -92,8 +105,13 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            item.title = getString(R.string.stop_surfing)
             updateStatus(getString(R.string.loading_ad_list))
+            with(item) {
+                title = getString(R.string.stop_surfing)
+                setIcon(R.drawable.icon_stop)
+            }
+
+            selectedAdHomeUrl = webView.originalUrl
             webView.webViewClient = getSpecialWebViewClient()
             webView.reload()
         }
@@ -120,10 +138,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        adPageList.shuffle()
-        adPageStack.clear()
-        adPageStack.addAll(adPageList)
-        browseNextAd()
+        if (adPageList.isNotEmpty()) {
+            hasAdSinceLastCheck = true
+            adPageList.shuffle()
+            adPageStack.clear()
+            adPageStack.addAll(adPageList)
+            browseNextAd()
+        } else {
+            processNoAdAvailable()
+        }
     }
 
     private fun processNoAdAvailable() {
@@ -131,7 +154,12 @@ class MainActivity : AppCompatActivity() {
             override fun execute() {
                 txtStatus.text = getString(R.string.ad_clear)
                 Toast.makeText(applicationContext, getString(R.string.no_ad_can_browse), Toast.LENGTH_SHORT).show()
-                navBar.menu.findItem(R.id.navStartStop).title = getString(R.string.start_surfing)
+
+                with(navBar.menu.findItem(R.id.navStartStop)) {
+                    title = getString(R.string.start_surfing)
+                    setIcon(R.drawable.icon_start)
+                }
+
                 isSurfRunning = false
                 webView.webViewClient = WebViewClient()
             }
@@ -160,6 +188,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processAdPage() {
+        stopTimer()
+        turingNumberUrlStack.clear()
+
         with(selectedAdPage) {
             updateStatus("瀏覽廣告${name}，時間${duration}秒")
 
@@ -176,16 +207,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun processAccountCredited() {
+        stopTimer()
+        browseNextAd()
+    }
+
     private fun browseNextAd() {
         if (adPageStack.empty()) {
-            processNoAdAvailable()
+            if (hasAdSinceLastCheck) {
+                updateStatus(getString(R.string.checking_left_ads))
+                hasAdSinceLastCheck = false
+                browseUrl(selectedAdHomeUrl)
+            } else {
+                processNoAdAvailable()
+            }
         } else {
             selectedAdPage = adPageStack.pop()
-
-            val url = selectedAdPage.url
-            if (StringUtils.isNotEmpty(url)) {
-                browseUrl(url)
-            }
+            browseUrl(selectedAdPage.url)
         }
     }
 
@@ -207,6 +245,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         startThread(operation, 0)
+    }
+
+    private fun launchTimer() {
+        val operation = object : OperationWrapper {
+            override fun execute() {
+                browseNextAd()
+            }
+        }
+
+        timerThread = object : Thread() {
+            override fun run() {
+                super.run()
+                Thread.sleep(60000)
+                handler.sendMessage(getOperationMessage(operation))
+            }
+        }
+    }
+
+    private fun stopTimer() {
+        if (!timerThread.isInterrupted) {
+            timerThread.interrupt()
+        }
     }
 
     private fun startThread(operation: OperationWrapper, delayTimeMill: Long) {
@@ -233,6 +293,7 @@ class MainActivity : AppCompatActivity() {
     object : Handler() {
         override fun handleMessage(msg: Message?) {
             super.handleMessage(msg)
+
             val operation = msg?.data?.get(THREAD_KEY_OPERATION_WRAPPER) as OperationWrapper
             operation.execute()
         }
@@ -245,8 +306,8 @@ class MainActivity : AppCompatActivity() {
                 super.onPageStarted(view, url, favicon)
                 if (StringUtils.startsWith(url, "http://myfreeshares.com/scripts/runner.php?PA=")) {
                     val adNumber = StringUtils.substringAfter(selectedAdPage.url, "PA=")
-                    updateStatus("載入廣告$adNumber")
-                    //launchTimer()
+                    updateStatus("載入廣告$adNumber...")
+                    launchTimer()
                 }
             }
 
@@ -258,15 +319,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack()
+            return
+        }
+
+        super.onBackPressed()
+    }
+
     internal inner class JavaScriptInterface {
         @JavascriptInterface
         fun processHTML(html: String) {
-            if (StringUtils.containsIgnoreCase(html, getString(R.string.ad_worth_text))) {
+            if (StringUtils.containsIgnoreCase(html, getString(R.string.page_text_ad_worth))) {
                 processAdList(html)
-            } else if (StringUtils.containsIgnoreCase(html, getString(R.string.no_ads_available))) {
+            } else if (StringUtils.containsIgnoreCase(html, getString(R.string.page_text_no_ads_available))) {
                 processNoAdAvailable()
-            } else if (html.contains(getString(R.string.turing_test_text))) {
+            } else if (StringUtils.containsIgnoreCase(html,getString(R.string.page_text_turing_test))) {
                 processTuringTest(html)
+            } else if (StringUtils.containsIgnoreCase(html, getString(R.string.page_text_account_credited))){
+                processAccountCredited()
             } else {
                 processAdPage()
             }
