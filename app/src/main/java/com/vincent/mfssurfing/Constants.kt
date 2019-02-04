@@ -4,7 +4,7 @@ class Constants {
 
     companion object {
 
-        val MESSAGE_KEY_OPERATION_WRAPPER = "operationWrapper"
+        val MESSAGE_KEY_OPERATOR = "operationWrapper"
 
         val URL_MFS_HOME = "http://myfreeshares.com/pages/enternew.php"
         val URL_PREFIX_AD_PAGE = "http://myfreeshares.com/scripts/runner.php?PA="
@@ -24,11 +24,10 @@ class Constants {
         val ATTR_HREF = "href"
         val ATTR_ON_CLICK = "onClick"
 
-        val DANGEROUS_AD_TITLE_KEYWORDS = listOf("Donate")
+        val IGNORABLE_AD_TITLE_KEYWORDS = listOf("Donate")
 
         val JAVASCRIPT_NAME = "HTMLOUT"
         val JAVASCRIPT_SYNTAX = "javascript:HTMLOUT.processHTML(document.documentElement.outerHTML);"
-
 
     }
 

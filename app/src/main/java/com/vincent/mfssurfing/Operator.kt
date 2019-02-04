@@ -2,7 +2,7 @@ package com.vincent.mfssurfing
 
 import java.io.Serializable
 
-interface OperationWrapper : Serializable {
+interface Operator : Serializable {
 
     fun execute()
 

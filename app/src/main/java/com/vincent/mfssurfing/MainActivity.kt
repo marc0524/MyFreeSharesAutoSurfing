@@ -20,6 +20,7 @@ import java.util.*
 
 class MainActivity : AppCompatActivity() {
     // https://www.jianshu.com/p/aa499cc64f72
+    // https://www.jianshu.com/p/21068fde1c82
 
     @BindView(R.id.txtStatus) lateinit var txtStatus: TextView
     @BindView(R.id.webView) lateinit var webView: WebView
@@ -35,7 +36,7 @@ class MainActivity : AppCompatActivity() {
     private var hasAdSinceLastCheck: Boolean = false
 
     private lateinit var thread: Thread
-    private lateinit var timerThread: Thread
+    private var timerThread: Thread = Thread()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,7 +123,7 @@ class MainActivity : AppCompatActivity() {
         val adPageList = mutableListOf<AdPage>()
 
         for (tag in adLinkTags) {
-            if (isNotDangerousAd(tag.text())) {
+            if (isVisitableAd(tag.text())) {
                 val adPage = AdPage()
                 with(adPage) {
                     name = StringUtils.substringAfter(tag.attr(Constants.ATTR_HREF), Constants.PARAM_AD_NUMBER)
@@ -146,7 +147,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processNoAdAvailable() {
-        val operation = object : OperationWrapper {
+        val operator = object : Operator {
             override fun execute() {
                 txtStatus.text = getString(R.string.ad_clear)
                 Toast.makeText(applicationContext, getString(R.string.no_ad_can_browse), Toast.LENGTH_SHORT).show()
@@ -161,7 +162,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        startThread(operation, 0)
+        startThread(operator, 0)
     }
 
     private fun processTuringTest(html: String) {
@@ -190,7 +191,7 @@ class MainActivity : AppCompatActivity() {
         with(selectedAdPage) {
             updateStatus("${getString(R.string.browsing_ad_page)}$name${getString(R.string.time)}$duration${getString(R.string.second)}")
 
-            val operation = object : OperationWrapper {
+            val operator = object : Operator {
                 override fun execute() {
                     if (isSurfRunning) {
                         browseNextAd()
@@ -199,7 +200,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val extraDelayTime = (Math.random() * 2000 + 3000).toLong()
-            startThread(operation, duration * 1000 + extraDelayTime)
+            startThread(operator, duration * 1000 + extraDelayTime)
         }
     }
 
@@ -224,27 +225,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun browseUrl(url: String) {
-        val operation = object : OperationWrapper {
+        val operator = object : Operator {
             override fun execute() {
                 webView.loadUrl(url)
             }
         }
 
-        startThread(operation, 0)
+        startThread(operator, 0)
     }
 
     private fun updateStatus(message: String) {
-        val operation = object : OperationWrapper {
+        val operator = object : Operator {
             override fun execute() {
                 txtStatus.text = message
             }
         }
 
-        startThread(operation, 0)
+        startThread(operator, 0)
     }
 
     private fun launchTimer() {
-        val operation = object : OperationWrapper {
+        val operator = object : Operator {
             override fun execute() {
                 browseNextAd()
             }
@@ -254,7 +255,7 @@ class MainActivity : AppCompatActivity() {
             override fun run() {
                 super.run()
                 Thread.sleep(60000)
-                handler.sendMessage(getOperationMessage(operation))
+                handler.sendMessage(generateMessage(operator))
             }
         }
     }
@@ -265,8 +266,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun isNotDangerousAd(adTitle: String): Boolean {
-        for (keyword in Constants.DANGEROUS_AD_TITLE_KEYWORDS) {
+    private fun isVisitableAd(adTitle: String): Boolean {
+        for (keyword in Constants.IGNORABLE_AD_TITLE_KEYWORDS) {
             if (StringUtils.containsIgnoreCase(adTitle, keyword)) {
                 return false
             }
@@ -275,19 +276,19 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    private fun startThread(operation: OperationWrapper, delayTimeMill: Long) {
+    private fun startThread(operator: Operator, delayTimeMill: Long) {
         thread = object : Thread() {
             override fun run() {
                 super.run()
-                handler.sendMessageDelayed(getOperationMessage(operation), delayTimeMill)
+                handler.sendMessageDelayed(generateMessage(operator), delayTimeMill)
             }
         }
         thread.start()
     }
 
-    private fun getOperationMessage(operation: OperationWrapper): Message {
+    private fun generateMessage(operator: Operator): Message {
         val bundle = Bundle()
-        bundle.putSerializable(Constants.MESSAGE_KEY_OPERATION_WRAPPER, operation)
+        bundle.putSerializable(Constants.MESSAGE_KEY_OPERATOR, operator)
 
         val message = Message()
         message.data = bundle
@@ -300,8 +301,8 @@ class MainActivity : AppCompatActivity() {
         override fun handleMessage(msg: Message?) {
             super.handleMessage(msg)
 
-            val operation = msg?.data?.get(Constants.MESSAGE_KEY_OPERATION_WRAPPER) as OperationWrapper
-            operation.execute()
+            val operator = msg?.data?.get(Constants.MESSAGE_KEY_OPERATOR) as Operator
+            operator.execute()
         }
     }
 
@@ -311,9 +312,9 @@ class MainActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 if (StringUtils.startsWith(url, Constants.URL_PREFIX_AD_PAGE)) {
+                    launchTimer()
                     val adNumber = StringUtils.substringAfter(selectedAdPage.url, Constants.PARAM_AD_NUMBER)
                     updateStatus("${getString(R.string.loading_ad_page)}$adNumber")
-                    launchTimer()
                 }
             }
 
@@ -337,6 +338,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         super.onBackPressed()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacksAndMessages(null)
+        stopTimer()
     }
 
     internal inner class JavaScriptInterface {
