@@ -7,7 +7,8 @@ enum class SurfingSpace(
 
     PAID_TO_CLICK("http://www.myfreeshares.com/pages/member5"),
     SHARE_TO_CLICK("http://www.myfreeshares.com/pages/member5p.php"),
-    CONTEST_PTC("http://www.myfreeshares.com/pages/member5c.php");
+    CONTEST_PTC("http://www.myfreeshares.com/pages/member5c.php"),
+    SUPER_CONTEST_PTC("http://myfreeshares.com/pages/member5c1000.php");
 
     companion object {
         fun fromUrlStartWith(url: String): SurfingSpace? {
