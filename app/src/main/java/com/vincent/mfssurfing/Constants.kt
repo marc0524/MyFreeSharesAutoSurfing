@@ -29,6 +29,10 @@ class Constants {
         val JAVASCRIPT_NAME = "HTMLOUT"
         val JAVASCRIPT_SYNTAX = "javascript:HTMLOUT.processHTML(document.documentElement.outerHTML);"
 
+        val MINIMUM_MANDATORY_JUMP_TIME = 45
+        val KEY_CAN_HANDLE_TURING_TEST = "canHandleTuringTest"
+        val KEY_MANDATORY_JUMP_TIME = "mandatoryJumpTime"
+
     }
 
 }
