@@ -1,16 +1,19 @@
 package com.vincent.mfssurfing
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Message
 import android.support.design.widget.BottomNavigationView
+import android.view.LayoutInflater
 import android.view.MenuItem
+import android.view.View
 import android.webkit.*
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import butterknife.BindView
 import butterknife.ButterKnife
 import org.apache.commons.lang3.StringUtils
@@ -24,6 +27,7 @@ class MainActivity : AppCompatActivity() {
 
     @BindView(R.id.txtStatus) lateinit var txtStatus: TextView
     @BindView(R.id.webView) lateinit var webView: WebView
+    @BindView(R.id.lstSettings) lateinit var lstSettings: ListView
     @BindView(R.id.navBar) lateinit var navBar: BottomNavigationView
 
     private val adPageStack: Stack<AdPage> = Stack()
@@ -38,11 +42,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var thread: Thread
     private var timerThread: Thread = Thread()
 
+    private lateinit var sp: SharedPreferences
+    private var jumpTimeSec: Int = 60
+    private var canHandleTuringTest: Boolean = true
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         ButterKnife.bind(this)
+
+        sp = getSharedPreferences("MFS", Context.MODE_PRIVATE)
 
         with(webView) {
             webViewClient = WebViewClient()
@@ -52,16 +62,34 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupNavigationBar()
+        setupSettingOptions()
     }
 
     private fun setupNavigationBar() {
         navBar.setOnNavigationItemSelectedListener { item: MenuItem ->
             when(item.itemId) {
-                R.id.navHome -> goMFSHome()
-                R.id.navStartStop -> switchSurfingOperation(item)
+                R.id.navHome -> {
+                    if (lstSettings.visibility != View.VISIBLE) {
+                        goMFSHome()
+                    } else {
+                        hideSettingSection()
+                    }
+                }
+
+                R.id.navStartStop -> {
+                    if (lstSettings.visibility != View.VISIBLE) {
+                        switchSurfingOperation(item)
+                    } else {
+                        hideSettingSection()
+                    }
+                }
+
                 R.id.navSettings -> {
-                    updateStatus(getString(R.string.stand_by))
-                    Toast.makeText(applicationContext, item.title, Toast.LENGTH_SHORT).show()
+                    if (lstSettings.visibility == View.VISIBLE) {
+                        hideSettingSection()
+                    } else {
+                        showSettingSection()
+                    }
                 }
             }
             true
@@ -69,10 +97,96 @@ class MainActivity : AppCompatActivity() {
 
         navBar.setOnNavigationItemReselectedListener { item: MenuItem ->
             when(item.itemId) {
-                R.id.navHome -> goMFSHome()
-                R.id.navStartStop -> switchSurfingOperation(item)
+                R.id.navHome -> {
+                    if (lstSettings.visibility == View.VISIBLE) {
+                        hideSettingSection()
+                    } else {
+                        goMFSHome()
+                    }
+                }
+
+                R.id.navStartStop -> {
+                    if (lstSettings.visibility == View.VISIBLE) {
+                        hideSettingSection()
+                    } else {
+                        switchSurfingOperation(item)
+                    }
+                }
             }
         }
+    }
+
+    private fun setupSettingOptions() {
+        val inflater: LayoutInflater = LayoutInflater.from(this)
+
+        val view1 = SettingOptionView(
+            getString(R.string.title_handle_turing_test),
+            getString(R.string.desc_handle_turing_test),
+            getRadioGroupOfHandleTuringTest(inflater)
+        )
+
+        val view2 = SettingOptionView(
+            getString(R.string.title_mandatory_jump),
+            getString(R.string.desc_mandatory_jump),
+            getSeekBarOfMandatoryJumpTime(inflater)
+        )
+
+        lstSettings.adapter = SettingOptionAdapter(this, listOf(view1, view2))
+    }
+
+    private fun getRadioGroupOfHandleTuringTest(inflater: LayoutInflater): RadioGroup {
+        val radioGroup = inflater.inflate(R.layout.radio_handle_turing_test, null) as RadioGroup
+
+        canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
+        if (canHandleTuringTest) {
+            radioGroup.check(R.id.rdoProceedTuring)
+        } else {
+            radioGroup.check(R.id.rdoEscapeTuring)
+        }
+
+        radioGroup.setOnCheckedChangeListener { group, checkedId ->
+            when(checkedId) {
+                R.id.rdoProceedTuring -> {
+                    sp.edit().putBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true).apply()
+                }
+
+                R.id.rdoEscapeTuring -> {
+                    sp.edit().putBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, false).apply()
+                }
+            }
+        }
+
+        return radioGroup
+    }
+
+    private fun getSeekBarOfMandatoryJumpTime(inflater: LayoutInflater): RelativeLayout {
+        val layout = inflater.inflate(R.layout.seekbar_mandatory_jump_time, null) as RelativeLayout
+        val seekBar = layout.findViewById<SeekBar>(R.id.seekJumpTime)
+        val txtJumpTime = layout.findViewById<TextView>(R.id.txtJumpTime)
+
+        jumpTimeSec = sp.getInt(Constants.KEY_MANDATORY_JUMP_TIME, 60)
+        txtJumpTime.text = getString(R.string.label_jump_time, jumpTimeSec)
+        seekBar.progress = (jumpTimeSec - Constants.MINIMUM_MANDATORY_JUMP_TIME) / 5
+
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                txtJumpTime.text = getString(R.string.label_jump_time,
+                    progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                sp.edit().putInt(Constants.KEY_MANDATORY_JUMP_TIME,
+                    seekBar!!.progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME).apply()
+            }
+
+        })
+
+        return layout
     }
 
     private fun goMFSHome() {
@@ -108,12 +222,28 @@ class MainActivity : AppCompatActivity() {
                 setIcon(R.drawable.icon_stop)
             }
 
+            jumpTimeSec = sp.getInt(Constants.KEY_MANDATORY_JUMP_TIME, 60)
+            canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
             selectedAdHomeUrl = webView.originalUrl
+
             webView.webViewClient = getSpecialWebViewClient()
             webView.reload()
         }
 
         isSurfRunning = !isSurfRunning
+    }
+
+    private fun showSettingSection() {
+        txtStatus.visibility = View.GONE
+        webView.visibility = View.GONE
+        lstSettings.visibility = View.VISIBLE
+        updateStatus(getString(R.string.stand_by))
+    }
+
+    private fun hideSettingSection() {
+        txtStatus.visibility = View.VISIBLE
+        webView.visibility = View.VISIBLE
+        lstSettings.visibility = View.GONE
     }
 
     private fun processAdList(html: String) {
@@ -166,6 +296,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processTuringTest(html: String) {
+        if (!canHandleTuringTest) {
+            stopTimer()
+            return
+        }
+
         if (turingNumberUrlStack.empty()) {
             val numberLinkTags: Elements = Jsoup.parse(html)
                 .select(Constants.TAG_REGEX_TURING_NUMBER)
@@ -199,8 +334,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val extraDelayTime = (Math.random() * 2000 + 3000).toLong()
-            startThread(operator, duration * 1000 + extraDelayTime)
+            startThread(operator, duration * 1000L)
         }
     }
 
@@ -254,10 +388,11 @@ class MainActivity : AppCompatActivity() {
         timerThread = object : Thread() {
             override fun run() {
                 super.run()
-                Thread.sleep(60000)
+                Thread.sleep(jumpTimeSec * 1000L)
                 handler.sendMessage(generateMessage(operator))
             }
         }
+        timerThread.start()
     }
 
     private fun stopTimer() {

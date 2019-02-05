@@ -23,4 +23,13 @@
     <string name="time">，時間</string>
     <string name="second">秒</string>
 
+    <string name="title_handle_turing_test">處理圖形驗證</string>
+    <string name="desc_handle_turing_test">衝浪時若遇到圖形驗證，是否要讓程式處理？</string>
+    <string name="auto_handle">自動處理</string>
+    <string name="escape_handle">不處理</string>
+
+    <string name="title_mandatory_jump">強制跳離廣告</string>
+    <string name="desc_mandatory_jump">若廣告載入太久，可設置經過一定時間後，強制離開當前廣告。</string>
+    <string name="label_jump_time">%d秒後跳離</string>
+
 </resources>
