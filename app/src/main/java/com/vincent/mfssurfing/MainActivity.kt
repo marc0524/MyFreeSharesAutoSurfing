@@ -131,7 +131,13 @@ class MainActivity : AppCompatActivity() {
             getSeekBarOfMandatoryJumpTime(inflater)
         )
 
-        lstSettings.adapter = SettingOptionAdapter(this, listOf(view1, view2))
+        val view3 = SettingOptionView(
+            getString(R.string.title_ignore_ad),
+            getString(R.string.desc_ignore_ad),
+            getListViewOfIgnoreAds(inflater)
+        )
+
+        lstSettings.adapter = SettingOptionAdapter(this, listOf(view1, view2, view3))
     }
 
     private fun getRadioGroupOfHandleTuringTest(inflater: LayoutInflater): RadioGroup {
@@ -189,8 +195,14 @@ class MainActivity : AppCompatActivity() {
         return layout
     }
 
+    private fun getListViewOfIgnoreAds(inflater: LayoutInflater): ListView {
+        return ListView(this)
+    }
+
     private fun goMFSHome() {
-        if (StringUtils.equals(webView.originalUrl, Constants.URL_MFS_HOME)) {
+        if (isSurfRunning) {
+            Toast.makeText(applicationContext, getString(R.string.do_not_disturb_surfing), Toast.LENGTH_SHORT).show()
+        } else if (StringUtils.equals(webView.originalUrl, Constants.URL_MFS_HOME)) {
             Toast.makeText(applicationContext, getString(R.string.landing_home_already), Toast.LENGTH_SHORT).show()
         } else {
             updateStatus(getString(R.string.stand_by))
@@ -388,7 +400,13 @@ class MainActivity : AppCompatActivity() {
         timerThread = object : Thread() {
             override fun run() {
                 super.run()
-                Thread.sleep(jumpTimeSec * 1000L)
+
+                try {
+                    Thread.sleep(jumpTimeSec * 1000L)
+                } catch (e: InterruptedException) {
+                    return
+                }
+
                 handler.sendMessage(generateMessage(operator))
             }
         }
