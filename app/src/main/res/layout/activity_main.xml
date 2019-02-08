@@ -7,11 +7,15 @@
         android:layout_height="match_parent"
         tools:context=".MainActivity">
 
-    <ListView
+    <ExpandableListView
             android:id="@+id/lstSettings"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_above="@id/navBar"
+            android:divider="?android:attr/listDivider"
+            android:dividerHeight="1dp"
+            android:childDivider="#00ffffff"
+            android:groupIndicator="@null"
             android:visibility="gone"/>
 
     <TextView
