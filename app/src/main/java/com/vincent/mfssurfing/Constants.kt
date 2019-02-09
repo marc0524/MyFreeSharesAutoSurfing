@@ -26,7 +26,8 @@ class Constants {
         val ATTR_ON_CLICK = "onClick"
 
         val IGNORABLE_AD_NUMBER_DELIMETER = ','
-        val IGNORABLE_AD_DEFAULT_NUMBER = StringUtils.join(arrayOf("8710", "4163"), IGNORABLE_AD_NUMBER_DELIMETER)
+        val IGNORABLE_AD_DEFAULT_NUMBER =
+            StringUtils.join(arrayOf("8710", "4163", "9126"), IGNORABLE_AD_NUMBER_DELIMETER)
 
         val JAVASCRIPT_NAME = "HTMLOUT"
         val JAVASCRIPT_SYNTAX = "javascript:HTMLOUT.processHTML(document.documentElement.outerHTML);"

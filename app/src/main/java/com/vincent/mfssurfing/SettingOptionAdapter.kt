@@ -66,32 +66,22 @@ class SettingOptionAdapter (
         convertView: View?,
         parent: ViewGroup?
     ): View {
-        val view: View
+        if (groupPosition != 2) {
+            return convertView!!
+        }
 
+        val view: View
         if (convertView == null) {
-            val inflater = LayoutInflater.from(context)
-            view = inflater.inflate(R.layout.list_child_setting, null)
+            view = LayoutInflater.from(context).inflate(R.layout.list_child_setting, null)
         } else {
             view = convertView
         }
 
-        val txtAdId = view.findViewById<TextView>(R.id.txtAdId)
-        txtAdId.text = childTexts.get(groupPosition).get(childPosition)
-
         if (childPosition == 0) {
-            val layout = view.findViewById<RelativeLayout>(R.id.relativeLayout)
-            layout.setOnClickListener {
-                Toast.makeText(context, "Add", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            val imgDelete = view.findViewById<ImageView>(R.id.imgDelete)
-            imgDelete.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            imgDelete.setOnClickListener {
-                Toast.makeText(context, "Delete", Toast.LENGTH_SHORT).show()
-            }
+            return getAddAdChildView(view, groupPosition, childPosition)
         }
 
-        return view
+        return getIgnoredAdsChildView(view, groupPosition, childPosition)
     }
 
     override fun getChildId(groupPosition: Int, childPosition: Int): Long {
@@ -102,5 +92,50 @@ class SettingOptionAdapter (
         return groupViews.size
     }
 
+    private fun getAddAdChildView(view: View, groupPosition: Int, childPosition: Int): View {
+        val txtAdId = view.findViewById<TextView>(R.id.txtAdId)
+        val edtAdId = view.findViewById<EditText>(R.id.edtAdId)
+        val imgAction = view.findViewById<ImageView>(R.id.imgAction)
+
+        txtAdId.visibility = View.VISIBLE
+        txtAdId.text = childTexts.get(groupPosition).get(childPosition)
+
+        edtAdId.visibility = View.GONE
+        edtAdId.text = null
+
+        imgAction.visibility = View.GONE
+        imgAction.setBackgroundResource(R.drawable.icon_add)
+
+        val layout = view.findViewById<RelativeLayout>(R.id.relativeLayout)
+        layout.setOnClickListener {
+            txtAdId.visibility = View.GONE
+            edtAdId.visibility = View.VISIBLE
+            imgAction.visibility = View.VISIBLE
+            edtAdId.requestFocus()
+
+            imgAction.setOnClickListener {
+                Toast.makeText(context, "Add", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        return view
+    }
+
+    private fun getIgnoredAdsChildView(view: View, groupPosition: Int, childPosition: Int): View {
+        val txtAdId = view.findViewById<TextView>(R.id.txtAdId)
+        val imgAction = view.findViewById<ImageView>(R.id.imgAction)
+
+        txtAdId.visibility = View.VISIBLE
+        txtAdId.text = childTexts.get(groupPosition).get(childPosition)
+
+        imgAction.visibility = View.VISIBLE
+        imgAction.setBackgroundResource(R.drawable.icon_delete)
+
+        imgAction.setOnClickListener {
+            Toast.makeText(context, "Delete", Toast.LENGTH_SHORT).show()
+        }
+
+        return view
+    }
 
 }

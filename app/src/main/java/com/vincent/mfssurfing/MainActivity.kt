@@ -425,8 +425,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isVisitableAd(adUrl: String): Boolean {
-        for (keyword in ignoredAdNumbers) {
-            if (StringUtils.equals(StringUtils.substringAfter(Constants.PARAM_AD_NUMBER, adUrl), keyword)) {
+        for (number in ignoredAdNumbers) {
+            if (StringUtils.equals(StringUtils.substringAfter(adUrl, Constants.PARAM_AD_NUMBER), number)) {
                 return false
             }
         }
