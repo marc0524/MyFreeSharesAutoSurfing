@@ -24,10 +24,11 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     // https://www.jianshu.com/p/aa499cc64f72
     // https://www.jianshu.com/p/21068fde1c82
+    // https://www.jianshu.com/p/05df9c17a1d8
 
     @BindView(R.id.txtStatus) lateinit var txtStatus: TextView
     @BindView(R.id.webView) lateinit var webView: WebView
-    @BindView(R.id.lstSettings) lateinit var lstSettings: ListView
+    @BindView(R.id.lstSettings) lateinit var expandableListView: ExpandableListView
     @BindView(R.id.navBar) lateinit var navBar: BottomNavigationView
 
     private val adPageStack: Stack<AdPage> = Stack()
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sp: SharedPreferences
     private var jumpTimeSec: Int = 60
     private var canHandleTuringTest: Boolean = true
+    private lateinit var ignoredAdNumbers: List<String>
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         navBar.setOnNavigationItemSelectedListener { item: MenuItem ->
             when(item.itemId) {
                 R.id.navHome -> {
-                    if (lstSettings.visibility != View.VISIBLE) {
+                    if (expandableListView.visibility != View.VISIBLE) {
                         goMFSHome()
                     } else {
                         hideSettingSection()
@@ -77,7 +79,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 R.id.navStartStop -> {
-                    if (lstSettings.visibility != View.VISIBLE) {
+                    if (expandableListView.visibility != View.VISIBLE) {
                         switchSurfingOperation(item)
                     } else {
                         hideSettingSection()
@@ -85,7 +87,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 R.id.navSettings -> {
-                    if (lstSettings.visibility == View.VISIBLE) {
+                    if (expandableListView.visibility == View.VISIBLE) {
                         hideSettingSection()
                     } else {
                         showSettingSection()
@@ -98,7 +100,7 @@ class MainActivity : AppCompatActivity() {
         navBar.setOnNavigationItemReselectedListener { item: MenuItem ->
             when(item.itemId) {
                 R.id.navHome -> {
-                    if (lstSettings.visibility == View.VISIBLE) {
+                    if (expandableListView.visibility == View.VISIBLE) {
                         hideSettingSection()
                     } else {
                         goMFSHome()
@@ -106,7 +108,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 R.id.navStartStop -> {
-                    if (lstSettings.visibility == View.VISIBLE) {
+                    if (expandableListView.visibility == View.VISIBLE) {
                         hideSettingSection()
                     } else {
                         switchSurfingOperation(item)
@@ -117,6 +119,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupSettingOptions() {
+        val ignoredAdNumbers = sp.getString(Constants.KEY_IGNORED_AD_NUMBERS, Constants.IGNORABLE_AD_DEFAULT_NUMBER)
+            .split(Constants.IGNORABLE_AD_NUMBER_DELIMETER)
+            .toMutableList()
+
         val inflater: LayoutInflater = LayoutInflater.from(this)
 
         val view1 = SettingOptionView(
@@ -132,12 +138,17 @@ class MainActivity : AppCompatActivity() {
         )
 
         val view3 = SettingOptionView(
-            getString(R.string.title_ignore_ad),
+            "${getString(R.string.title_ignore_ad)} (${ignoredAdNumbers.size})",
             getString(R.string.desc_ignore_ad),
-            getListViewOfIgnoreAds(inflater)
+            View(this)
         )
 
-        lstSettings.adapter = SettingOptionAdapter(this, listOf(view1, view2, view3))
+        ignoredAdNumbers.add(0, getString(R.string.label_add_ad))
+
+        val groupContents = listOf(view1, view2, view3)
+        val childContent  = listOf<List<String>>(listOf(), listOf(), ignoredAdNumbers)
+
+        expandableListView.setAdapter(SettingOptionAdapter(this, groupContents, childContent))
     }
 
     private fun getRadioGroupOfHandleTuringTest(inflater: LayoutInflater): RadioGroup {
@@ -195,10 +206,6 @@ class MainActivity : AppCompatActivity() {
         return layout
     }
 
-    private fun getListViewOfIgnoreAds(inflater: LayoutInflater): ListView {
-        return ListView(this)
-    }
-
     private fun goMFSHome() {
         if (isSurfRunning) {
             Toast.makeText(applicationContext, getString(R.string.do_not_disturb_surfing), Toast.LENGTH_SHORT).show()
@@ -236,8 +243,11 @@ class MainActivity : AppCompatActivity() {
 
             jumpTimeSec = sp.getInt(Constants.KEY_MANDATORY_JUMP_TIME, 60)
             canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
-            selectedAdHomeUrl = webView.originalUrl
 
+            ignoredAdNumbers = sp.getString(Constants.KEY_IGNORED_AD_NUMBERS, Constants.IGNORABLE_AD_DEFAULT_NUMBER)
+                    .split(Constants.IGNORABLE_AD_NUMBER_DELIMETER).toList()
+
+            selectedAdHomeUrl = webView.originalUrl
             webView.webViewClient = getSpecialWebViewClient()
             webView.reload()
         }
@@ -248,14 +258,14 @@ class MainActivity : AppCompatActivity() {
     private fun showSettingSection() {
         txtStatus.visibility = View.GONE
         webView.visibility = View.GONE
-        lstSettings.visibility = View.VISIBLE
+        expandableListView.visibility = View.VISIBLE
         updateStatus(getString(R.string.stand_by))
     }
 
     private fun hideSettingSection() {
         txtStatus.visibility = View.VISIBLE
         webView.visibility = View.VISIBLE
-        lstSettings.visibility = View.GONE
+        expandableListView.visibility = View.GONE
     }
 
     private fun processAdList(html: String) {
@@ -265,7 +275,7 @@ class MainActivity : AppCompatActivity() {
         val adPageList = mutableListOf<AdPage>()
 
         for (tag in adLinkTags) {
-            if (isVisitableAd(tag.text())) {
+            if (isVisitableAd(tag.attr(Constants.ATTR_HREF))) {
                 val adPage = AdPage()
                 with(adPage) {
                     name = StringUtils.substringAfter(tag.attr(Constants.ATTR_HREF), Constants.PARAM_AD_NUMBER)
@@ -350,11 +360,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun processAccountCredited() {
-        stopTimer()
-        browseNextAd()
-    }
-
     private fun browseNextAd() {
         if (adPageStack.empty()) {
             if (hasAdSinceLastCheck) {
@@ -419,9 +424,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun isVisitableAd(adTitle: String): Boolean {
-        for (keyword in Constants.IGNORABLE_AD_TITLE_KEYWORDS) {
-            if (StringUtils.containsIgnoreCase(adTitle, keyword)) {
+    private fun isVisitableAd(adUrl: String): Boolean {
+        for (number in ignoredAdNumbers) {
+            if (StringUtils.equals(StringUtils.substringAfter(adUrl, Constants.PARAM_AD_NUMBER), number)) {
                 return false
             }
         }
@@ -508,8 +513,6 @@ class MainActivity : AppCompatActivity() {
                 processNoAdAvailable()
             } else if (StringUtils.containsIgnoreCase(html,Constants.PAGE_TEXT_TURING_TEST)) {
                 processTuringTest(html)
-            } else if (StringUtils.containsIgnoreCase(html, Constants.PAGE_TEXT_ACCOUNT_CREDITED)){
-                processAccountCredited()
             } else {
                 processAdPage()
             }

@@ -35,5 +35,7 @@
 
     <string name="title_ignore_ad">排除廣告名單</string>
     <string name="desc_ignore_ad">忽略不想瀏覽的廣告。例如會扣錢的廣告，或者少數會使衝浪程式受阻的廣告。</string>
+    <string name="label_add_ad">添加廣告...</string>
+    <string name="hint_enter_ad_id">請輸入廣告編號</string>
 
 </resources>
