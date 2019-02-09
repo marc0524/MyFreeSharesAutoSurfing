@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var thread: Thread
     private var timerThread: Thread = Thread()
 
+    private lateinit var preferencesHelper: PreferencesHelper
     private lateinit var sp: SharedPreferences
     private var jumpTimeSec: Int = 60
     private var canHandleTuringTest: Boolean = true
@@ -54,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         ButterKnife.bind(this)
 
+        preferencesHelper = PreferencesHelper(this)
         sp = getSharedPreferences("MFS", Context.MODE_PRIVATE)
 
         with(webView) {
@@ -119,10 +121,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupSettingOptions() {
-        val ignoredAdNumbers = sp.getString(Constants.KEY_IGNORED_AD_NUMBERS, Constants.IGNORABLE_AD_DEFAULT_NUMBER)
-            .split(Constants.IGNORABLE_AD_NUMBER_DELIMETER)
-            .toMutableList()
-
+        val ignoredAdNumbers = preferencesHelper.getIgnoredAdList()
         val inflater: LayoutInflater = LayoutInflater.from(this)
 
         val view1 = SettingOptionView(
@@ -144,9 +143,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         ignoredAdNumbers.add(0, getString(R.string.label_add_ad))
-
         val groupContents = listOf(view1, view2, view3)
-        val childContent  = listOf<List<String>>(listOf(), listOf(), ignoredAdNumbers)
+        val childContent  = listOf(mutableListOf(), mutableListOf(), ignoredAdNumbers)
 
         expandableListView.setAdapter(SettingOptionAdapter(this, groupContents, childContent))
     }
@@ -244,8 +242,7 @@ class MainActivity : AppCompatActivity() {
             jumpTimeSec = sp.getInt(Constants.KEY_MANDATORY_JUMP_TIME, 60)
             canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
 
-            ignoredAdNumbers = sp.getString(Constants.KEY_IGNORED_AD_NUMBERS, Constants.IGNORABLE_AD_DEFAULT_NUMBER)
-                    .split(Constants.IGNORABLE_AD_NUMBER_DELIMETER).toList()
+            ignoredAdNumbers = preferencesHelper.getIgnoredAdList()
 
             selectedAdHomeUrl = webView.originalUrl
             webView.webViewClient = getSpecialWebViewClient()
@@ -425,13 +422,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isVisitableAd(adUrl: String): Boolean {
-        for (number in ignoredAdNumbers) {
-            if (StringUtils.equals(StringUtils.substringAfter(adUrl, Constants.PARAM_AD_NUMBER), number)) {
-                return false
-            }
-        }
-
-        return true
+        return !ignoredAdNumbers.contains(
+            StringUtils.substringAfter(adUrl, Constants.PARAM_AD_NUMBER))
     }
 
     private fun startThread(operator: Operator, delayTimeMill: Long) {
