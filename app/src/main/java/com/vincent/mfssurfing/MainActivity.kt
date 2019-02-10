@@ -1,8 +1,6 @@
 package com.vincent.mfssurfing
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
@@ -32,7 +30,7 @@ class MainActivity : AppCompatActivity() {
     @BindView(R.id.navBar) lateinit var navBar: BottomNavigationView
 
     private val adPageStack: Stack<AdPage> = Stack()
-    private var turingNumberUrlStack: Stack<String> = Stack()
+    private var captchaNumberUrlStack: Stack<String> = Stack()
 
     private lateinit var selectedAdPage: AdPage
     private lateinit var selectedAdHomeUrl: String
@@ -44,9 +42,8 @@ class MainActivity : AppCompatActivity() {
     private var timerThread: Thread = Thread()
 
     private lateinit var preferencesHelper: PreferencesHelper
-    private lateinit var sp: SharedPreferences
-    private var jumpTimeSec: Int = 60
-    private var canHandleTuringTest: Boolean = true
+    private var skipSecond: Int = 60
+    private var isHandlingCaptchaAllowed: Boolean = true
     private lateinit var ignoredAdNumbers: List<String>
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -56,7 +53,6 @@ class MainActivity : AppCompatActivity() {
         ButterKnife.bind(this)
 
         preferencesHelper = PreferencesHelper(this)
-        sp = getSharedPreferences("MFS", Context.MODE_PRIVATE)
 
         with(webView) {
             webViewClient = WebViewClient()
@@ -125,9 +121,9 @@ class MainActivity : AppCompatActivity() {
         val inflater: LayoutInflater = LayoutInflater.from(this)
 
         val view1 = SettingOptionView(
-            getString(R.string.title_handle_turing_test),
-            getString(R.string.desc_handle_turing_test),
-            getRadioGroupOfHandleTuringTest(inflater)
+            getString(R.string.title_handle_captcha),
+            getString(R.string.desc_handle_captcha),
+            getRadioGroupOfHandleCaptcha(inflater)
         )
 
         val view2 = SettingOptionView(
@@ -149,24 +145,23 @@ class MainActivity : AppCompatActivity() {
         expandableListView.setAdapter(SettingOptionAdapter(this, groupContents, childContent))
     }
 
-    private fun getRadioGroupOfHandleTuringTest(inflater: LayoutInflater): RadioGroup {
-        val radioGroup = inflater.inflate(R.layout.radio_handle_turing_test, null) as RadioGroup
+    private fun getRadioGroupOfHandleCaptcha(inflater: LayoutInflater): RadioGroup {
+        val radioGroup = inflater.inflate(R.layout.radio_handle_captcha, null) as RadioGroup
 
-        canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
-        if (canHandleTuringTest) {
-            radioGroup.check(R.id.rdoProceedTuring)
+        if (preferencesHelper.isHandlingCaptchaAllowed()) {
+            radioGroup.check(R.id.rdoAllowHandlingCaptcha)
         } else {
-            radioGroup.check(R.id.rdoEscapeTuring)
+            radioGroup.check(R.id.rdoDisallowHandlingCaptcha)
         }
 
         radioGroup.setOnCheckedChangeListener { group, checkedId ->
             when(checkedId) {
-                R.id.rdoProceedTuring -> {
-                    sp.edit().putBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true).apply()
+                R.id.rdoAllowHandlingCaptcha -> {
+                    preferencesHelper.setHandlingCaptchaBehavior(true)
                 }
 
-                R.id.rdoEscapeTuring -> {
-                    sp.edit().putBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, false).apply()
+                R.id.rdoDisallowHandlingCaptcha -> {
+                    preferencesHelper.setHandlingCaptchaBehavior(false)
                 }
             }
         }
@@ -179,9 +174,9 @@ class MainActivity : AppCompatActivity() {
         val seekBar = layout.findViewById<SeekBar>(R.id.seekJumpTime)
         val txtJumpTime = layout.findViewById<TextView>(R.id.txtJumpTime)
 
-        jumpTimeSec = sp.getInt(Constants.KEY_MANDATORY_JUMP_TIME, 60)
-        txtJumpTime.text = getString(R.string.label_jump_time, jumpTimeSec)
-        seekBar.progress = (jumpTimeSec - Constants.MINIMUM_MANDATORY_JUMP_TIME) / 5
+        skipSecond = preferencesHelper.getAdBrowsingSkipSecond()
+        txtJumpTime.text = getString(R.string.label_jump_time, skipSecond)
+        seekBar.progress = (skipSecond - Constants.MINIMUM_MANDATORY_JUMP_TIME) / 5
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
 
@@ -195,8 +190,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                sp.edit().putInt(Constants.KEY_MANDATORY_JUMP_TIME,
-                    seekBar!!.progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME).apply()
+                preferencesHelper
+                    .setAdBrowsingSkipSecond(seekBar!!.progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME)
             }
 
         })
@@ -239,8 +234,8 @@ class MainActivity : AppCompatActivity() {
                 setIcon(R.drawable.icon_stop)
             }
 
-            jumpTimeSec = sp.getInt(Constants.KEY_MANDATORY_JUMP_TIME, 60)
-            canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
+            skipSecond = preferencesHelper.getAdBrowsingSkipSecond()
+            isHandlingCaptchaAllowed = preferencesHelper.isHandlingCaptchaAllowed()
 
             ignoredAdNumbers = preferencesHelper.getIgnoredAdList()
 
@@ -314,33 +309,33 @@ class MainActivity : AppCompatActivity() {
         startThread(operator, 0)
     }
 
-    private fun processTuringTest(html: String) {
-        if (!canHandleTuringTest) {
+    private fun processCaptcha(html: String) {
+        if (!isHandlingCaptchaAllowed) {
             stopTimer()
             return
         }
 
-        if (turingNumberUrlStack.empty()) {
+        if (captchaNumberUrlStack.empty()) {
             val numberLinkTags: Elements = Jsoup.parse(html)
-                .select(Constants.TAG_REGEX_TURING_NUMBER)
+                .select(Constants.TAG_REGEX_CAPTCHA_NUMBER)
             numberLinkTags.shuffle()
 
             for (tag in numberLinkTags) {
-                turingNumberUrlStack.push("${Constants.URL_PREFIX_TURING_NUMBER}${tag.attr(Constants.ATTR_HREF)}")
+                captchaNumberUrlStack.push("${Constants.URL_PREFIX_CAPTCHA_NUMBER}${tag.attr(Constants.ATTR_HREF)}")
             }
         }
 
-        val url = turingNumberUrlStack.pop()
-        val turingNumber = StringUtils.substring(
-            StringUtils.substringAfter(url, Constants.PARAM_TURING_NUMBER), 0, 4)
+        val url = captchaNumberUrlStack.pop()
+        val captchaNumber = StringUtils.substring(
+            StringUtils.substringAfter(url, Constants.PARAM_CAPTCHA_NUMBER), 0, 4)
 
-        updateStatus("${getString(R.string.try_turing_number)}$turingNumber")
+        updateStatus("${getString(R.string.try_captcha_number)}$captchaNumber")
         browseUrl(url)
     }
 
     private fun processAdPage() {
         stopTimer()
-        turingNumberUrlStack.clear()
+        captchaNumberUrlStack.clear()
 
         with(selectedAdPage) {
             updateStatus("${getString(R.string.browsing_ad_page)}$name${getString(R.string.time)}$duration${getString(R.string.second)}")
@@ -404,7 +399,7 @@ class MainActivity : AppCompatActivity() {
                 super.run()
 
                 try {
-                    Thread.sleep(jumpTimeSec * 1000L)
+                    Thread.sleep(skipSecond * 1000L)
                 } catch (e: InterruptedException) {
                     return
                 }
@@ -504,7 +499,7 @@ class MainActivity : AppCompatActivity() {
             } else if (StringUtils.containsIgnoreCase(html, Constants.PAGE_TEXT_NO_ADS_AVAILABLE)) {
                 processNoAdAvailable()
             } else if (StringUtils.containsIgnoreCase(html,Constants.PAGE_TEXT_TURING_TEST)) {
-                processTuringTest(html)
+                processCaptcha(html)
             } else {
                 processAdPage()
             }
