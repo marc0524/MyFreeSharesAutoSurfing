@@ -7,7 +7,7 @@
         android:orientation="horizontal">
 
     <RadioButton
-            android:id="@+id/rdoProceedTuring"
+            android:id="@+id/rdoAllowHandlingCaptcha"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -15,7 +15,7 @@
             android:text="@string/auto_handle"/>
 
     <RadioButton
-            android:id="@+id/rdoEscapeTuring"
+            android:id="@+id/rdoDisallowHandlingCaptcha"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

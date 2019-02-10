@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var preferencesHelper: PreferencesHelper
     private lateinit var sp: SharedPreferences
     private var jumpTimeSec: Int = 60
-    private var canHandleTuringTest: Boolean = true
+    private var isHandlingCaptchaAllowed: Boolean = true
     private lateinit var ignoredAdNumbers: List<String>
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -152,21 +152,20 @@ class MainActivity : AppCompatActivity() {
     private fun getRadioGroupOfHandleTuringTest(inflater: LayoutInflater): RadioGroup {
         val radioGroup = inflater.inflate(R.layout.radio_handle_turing_test, null) as RadioGroup
 
-        canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
-        if (canHandleTuringTest) {
-            radioGroup.check(R.id.rdoProceedTuring)
+        if (preferencesHelper.isHandlingCaptchaAllowed()) {
+            radioGroup.check(R.id.rdoAllowHandlingCaptcha)
         } else {
-            radioGroup.check(R.id.rdoEscapeTuring)
+            radioGroup.check(R.id.rdoDisallowHandlingCaptcha)
         }
 
         radioGroup.setOnCheckedChangeListener { group, checkedId ->
             when(checkedId) {
-                R.id.rdoProceedTuring -> {
-                    sp.edit().putBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true).apply()
+                R.id.rdoAllowHandlingCaptcha -> {
+                    preferencesHelper.setHandlingCaptchaBehavior(true)
                 }
 
-                R.id.rdoEscapeTuring -> {
-                    sp.edit().putBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, false).apply()
+                R.id.rdoDisallowHandlingCaptcha -> {
+                    preferencesHelper.setHandlingCaptchaBehavior(false)
                 }
             }
         }
@@ -240,7 +239,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             jumpTimeSec = sp.getInt(Constants.KEY_MANDATORY_JUMP_TIME, 60)
-            canHandleTuringTest = sp.getBoolean(Constants.KEY_CAN_HANDLE_TURING_TEST, true)
+            isHandlingCaptchaAllowed = preferencesHelper.isHandlingCaptchaAllowed()
 
             ignoredAdNumbers = preferencesHelper.getIgnoredAdList()
 
@@ -315,7 +314,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processTuringTest(html: String) {
-        if (!canHandleTuringTest) {
+        if (!isHandlingCaptchaAllowed) {
             stopTimer()
             return
         }

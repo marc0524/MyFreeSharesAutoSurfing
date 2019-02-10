@@ -9,11 +9,7 @@ class PreferencesHelper(
 
     private val sp: SharedPreferences = context.getSharedPreferences("MFS", Context.MODE_PRIVATE)
 
-    fun getIgnoredAdString(): String {
-        val ignoredAdNumbers = sp.getString(Constants.KEY_IGNORED_AD_NUMBERS, Constants.IGNORABLE_AD_DEFAULT_NUMBER)
-            .split(Constants.IGNORABLE_AD_NUMBER_DELIMETER)
-            .toSortedSet()
-
+    private fun getAdNumbersString(ignoredAdNumbers: Iterable<String>): String {
         return StringUtils.join(ignoredAdNumbers, Constants.IGNORABLE_AD_NUMBER_DELIMETER)
     }
 
@@ -30,8 +26,9 @@ class PreferencesHelper(
 
         ignoredAdNumbers.add(adNumber)
 
-        sp.edit().putString(Constants.KEY_IGNORED_AD_NUMBERS,
-            StringUtils.join(ignoredAdNumbers, Constants.IGNORABLE_AD_NUMBER_DELIMETER)).apply()
+        sp.edit()
+            .putString(Constants.KEY_IGNORED_AD_NUMBERS, getAdNumbersString(ignoredAdNumbers))
+            .apply()
     }
 
     fun deleteIgnoredAdNumber(adNumber: String) {
@@ -41,8 +38,19 @@ class PreferencesHelper(
 
         ignoredAdNumbers.remove(adNumber)
 
-        sp.edit().putString(Constants.KEY_IGNORED_AD_NUMBERS,
-            StringUtils.join(ignoredAdNumbers, Constants.IGNORABLE_AD_NUMBER_DELIMETER)).apply()
+        sp.edit()
+            .putString(Constants.KEY_IGNORED_AD_NUMBERS, getAdNumbersString(ignoredAdNumbers))
+            .apply()
+    }
+
+    fun isHandlingCaptchaAllowed(): Boolean {
+        return sp.getBoolean(Constants.KEY_IS_HANDLING_CAPTCHA_ALLOWED, true)
+    }
+
+    fun setHandlingCaptchaBehavior(allowed: Boolean) {
+        sp.edit()
+            .putBoolean(Constants.KEY_IS_HANDLING_CAPTCHA_ALLOWED, allowed)
+            .apply()
     }
 
 }
