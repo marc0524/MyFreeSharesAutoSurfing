@@ -132,7 +132,7 @@ class SettingOptionAdapter (
         imgAction.setOnClickListener {
             AlertDialog.Builder(context)
                 .setTitle(context.getString(R.string.title_ignore_ad))
-                .setMessage("${context.getString(R.string.recover_ad)}$adNumber${context.getString(R.string.will_be_browse)}")
+                .setMessage("${context.getString(R.string.recover_ad)}$adNumber${context.getString(R.string.will_be_browsed)}")
                 .setPositiveButton(context.getString(R.string.yes)
                 ) { dialog, which ->
                     PreferencesHelper(context).deleteIgnoredAdNumber(adNumber)

@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
                     if (expandableListView.visibility != View.VISIBLE) {
                         goMFSHome()
                     } else {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     }
                 }
 
@@ -80,15 +80,15 @@ class MainActivity : AppCompatActivity() {
                     if (expandableListView.visibility != View.VISIBLE) {
                         switchSurfingOperation(item)
                     } else {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     }
                 }
 
                 R.id.navSettings -> {
                     if (expandableListView.visibility == View.VISIBLE) {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     } else {
-                        showSettingSection()
+                        displaySettingSection(true)
                     }
                 }
             }
@@ -99,7 +99,7 @@ class MainActivity : AppCompatActivity() {
             when(item.itemId) {
                 R.id.navHome -> {
                     if (expandableListView.visibility == View.VISIBLE) {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     } else {
                         goMFSHome()
                     }
@@ -107,7 +107,7 @@ class MainActivity : AppCompatActivity() {
 
                 R.id.navStartStop -> {
                     if (expandableListView.visibility == View.VISIBLE) {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     } else {
                         switchSurfingOperation(item)
                     }
@@ -127,9 +127,9 @@ class MainActivity : AppCompatActivity() {
         )
 
         val view2 = SettingOptionView(
-            getString(R.string.title_mandatory_jump),
-            getString(R.string.desc_mandatory_jump),
-            getSeekBarOfMandatoryJumpTime(inflater)
+            getString(R.string.title_skip_time),
+            getString(R.string.desc_skip_time),
+            getSeekBarOfBrowsingSkipTime(inflater)
         )
 
         val view3 = SettingOptionView(
@@ -169,20 +169,20 @@ class MainActivity : AppCompatActivity() {
         return radioGroup
     }
 
-    private fun getSeekBarOfMandatoryJumpTime(inflater: LayoutInflater): RelativeLayout {
-        val layout = inflater.inflate(R.layout.seekbar_mandatory_jump_time, null) as RelativeLayout
-        val seekBar = layout.findViewById<SeekBar>(R.id.seekJumpTime)
-        val txtJumpTime = layout.findViewById<TextView>(R.id.txtJumpTime)
+    private fun getSeekBarOfBrowsingSkipTime(inflater: LayoutInflater): RelativeLayout {
+        val layout = inflater.inflate(R.layout.seekbar_browsing_skip_time, null) as RelativeLayout
+        val seekBar = layout.findViewById<SeekBar>(R.id.seekSkipTime)
+        val txtSkipTime = layout.findViewById<TextView>(R.id.txtSkipTime)
 
         skipSecond = preferencesHelper.getAdBrowsingSkipSecond()
-        txtJumpTime.text = getString(R.string.label_jump_time, skipSecond)
-        seekBar.progress = (skipSecond - Constants.MINIMUM_MANDATORY_JUMP_TIME) / 5
+        txtSkipTime.text = getString(R.string.label_skip_time, skipSecond)
+        seekBar.progress = (skipSecond - Constants.MINIMUM_BROWSING_SKIP_TIME) / 5
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
 
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                txtJumpTime.text = getString(R.string.label_jump_time,
-                    progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME)
+                txtSkipTime.text = getString(R.string.label_skip_time,
+                    progress * 5 + Constants.MINIMUM_BROWSING_SKIP_TIME)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
                 preferencesHelper
-                    .setAdBrowsingSkipSecond(seekBar!!.progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME)
+                    .setAdBrowsingSkipSecond(seekBar!!.progress * 5 + Constants.MINIMUM_BROWSING_SKIP_TIME)
             }
 
         })
@@ -247,20 +247,20 @@ class MainActivity : AppCompatActivity() {
         isSurfRunning = !isSurfRunning
     }
 
-    private fun showSettingSection() {
-        txtStatus.visibility = View.GONE
-        webView.visibility = View.GONE
-        expandableListView.visibility = View.VISIBLE
-        updateStatus(getString(R.string.stand_by))
+    private fun displaySettingSection(show: Boolean) {
+        if (show) {
+            txtStatus.visibility = View.GONE
+            webView.visibility = View.GONE
+            expandableListView.visibility = View.VISIBLE
+            updateStatus(getString(R.string.stand_by))
+        } else {
+            txtStatus.visibility = View.VISIBLE
+            webView.visibility = View.VISIBLE
+            expandableListView.visibility = View.GONE
+        }
     }
 
-    private fun hideSettingSection() {
-        txtStatus.visibility = View.VISIBLE
-        webView.visibility = View.VISIBLE
-        expandableListView.visibility = View.GONE
-    }
-
-    private fun processAdList(html: String) {
+    private fun processAdListPage(html: String) {
         val adLinkTags: Elements = Jsoup.parse(html)
             .select(Constants.TAG_REGEX_AD)
 
@@ -286,11 +286,11 @@ class MainActivity : AppCompatActivity() {
             adPageStack.addAll(adPageList)
             browseNextAd()
         } else {
-            processNoAdAvailable()
+            processNoAdAvailablePage()
         }
     }
 
-    private fun processNoAdAvailable() {
+    private fun processNoAdAvailablePage() {
         val operator = object : Operator {
             override fun execute() {
                 txtStatus.text = getString(R.string.ad_clear)
@@ -309,7 +309,7 @@ class MainActivity : AppCompatActivity() {
         threadHelper.startThread(operator, 0)
     }
 
-    private fun processCaptcha(html: String) {
+    private fun processCaptchaPage(html: String) {
         if (!isHandlingCaptchaAllowed) {
             threadHelper.stopTimer(timerThread)
             return
@@ -359,7 +359,7 @@ class MainActivity : AppCompatActivity() {
                 hasAdSinceLastCheck = false
                 browseUrl(selectedAdHomeUrl)
             } else {
-                processNoAdAvailable()
+                processNoAdAvailablePage()
             }
         } else {
             selectedAdPage = adPageStack.pop()
@@ -430,11 +430,11 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun processHTML(html: String) {
             if (StringUtils.containsIgnoreCase(html, Constants.PAGE_TEXT_AD_WORTH)) {
-                processAdList(html)
+                processAdListPage(html)
             } else if (StringUtils.containsIgnoreCase(html, Constants.PAGE_TEXT_NO_ADS_AVAILABLE)) {
-                processNoAdAvailable()
+                processNoAdAvailablePage()
             } else if (StringUtils.containsIgnoreCase(html,Constants.PAGE_TEXT_TURING_TEST)) {
-                processCaptcha(html)
+                processCaptchaPage(html)
             } else {
                 processAdPage()
             }

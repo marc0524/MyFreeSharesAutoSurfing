@@ -32,9 +32,9 @@ class Constants {
         val JAVASCRIPT_NAME = "HTMLOUT"
         val JAVASCRIPT_SYNTAX = "javascript:HTMLOUT.processHTML(document.documentElement.outerHTML);"
 
-        val MINIMUM_MANDATORY_JUMP_TIME = 45
+        val MINIMUM_BROWSING_SKIP_TIME = 45
         val KEY_IS_HANDLING_CAPTCHA_ALLOWED = "isHandlingCaptchaAllowed"
-        val KEY_AD_BROWSING_SKIP_SECOND = "mandatoryJumpTime"
+        val KEY_AD_BROWSING_SKIP_SECOND = "adBrowsingSkipTime"
         val KEY_IGNORED_AD_NUMBERS = "ignoredAdNumbers"
 
     }
