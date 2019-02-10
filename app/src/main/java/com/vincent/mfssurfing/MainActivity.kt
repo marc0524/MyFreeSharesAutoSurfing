@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
-import android.os.Message
 import android.support.design.widget.BottomNavigationView
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -38,10 +36,11 @@ class MainActivity : AppCompatActivity() {
     private var isSurfRunning: Boolean = false
     private var hasAdSinceLastCheck: Boolean = false
 
-    private lateinit var thread: Thread
-    private var timerThread: Thread = Thread()
+    private lateinit var timerThread: Thread
 
     private lateinit var preferencesHelper: PreferencesHelper
+    private lateinit var threadHelper: ThreadHelper
+
     private var skipSecond: Int = 60
     private var isHandlingCaptchaAllowed: Boolean = true
     private lateinit var ignoredAdNumbers: List<String>
@@ -53,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         ButterKnife.bind(this)
 
         preferencesHelper = PreferencesHelper(this)
+        threadHelper = ThreadHelper()
 
         with(webView) {
             webViewClient = WebViewClient()
@@ -213,7 +213,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchSurfingOperation(item: MenuItem) {
         if (isSurfRunning) {
-            stopTimer()
+            threadHelper.stopTimer(timerThread)
 
             updateStatus(getString(R.string.surfing_stopped))
             with(item) {
@@ -306,12 +306,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        startThread(operator, 0)
+        threadHelper.startThread(operator, 0)
     }
 
     private fun processCaptcha(html: String) {
         if (!isHandlingCaptchaAllowed) {
-            stopTimer()
+            threadHelper.stopTimer(timerThread)
             return
         }
 
@@ -334,7 +334,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processAdPage() {
-        stopTimer()
+        threadHelper.stopTimer(timerThread)
         captchaNumberUrlStack.clear()
 
         with(selectedAdPage) {
@@ -348,7 +348,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            startThread(operator, duration * 1000L)
+            threadHelper.startThread(operator, duration * 1000L)
         }
     }
 
@@ -368,87 +368,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun browseUrl(url: String) {
-        val operator = object : Operator {
-            override fun execute() {
-                webView.loadUrl(url)
-            }
-        }
-
-        startThread(operator, 0)
+        threadHelper.browseUrl(webView, url)
     }
 
     private fun updateStatus(message: String) {
-        val operator = object : Operator {
-            override fun execute() {
-                txtStatus.text = message
-            }
-        }
-
-        startThread(operator, 0)
-    }
-
-    private fun launchTimer() {
-        val operator = object : Operator {
-            override fun execute() {
-                browseNextAd()
-            }
-        }
-
-        timerThread = object : Thread() {
-            override fun run() {
-                super.run()
-
-                try {
-                    Thread.sleep(skipSecond * 1000L)
-                } catch (e: InterruptedException) {
-                    return
-                }
-
-                handler.sendMessage(generateMessage(operator))
-            }
-        }
-        timerThread.start()
-    }
-
-    private fun stopTimer() {
-        if (!timerThread.isInterrupted) {
-            timerThread.interrupt()
-        }
+        threadHelper.updateStatus(txtStatus, message)
     }
 
     private fun isVisitableAd(adUrl: String): Boolean {
         return !ignoredAdNumbers.contains(
             StringUtils.substringAfter(adUrl, Constants.PARAM_AD_NUMBER))
-    }
-
-    private fun startThread(operator: Operator, delayTimeMill: Long) {
-        thread = object : Thread() {
-            override fun run() {
-                super.run()
-                handler.sendMessageDelayed(generateMessage(operator), delayTimeMill)
-            }
-        }
-        thread.start()
-    }
-
-    private fun generateMessage(operator: Operator): Message {
-        val bundle = Bundle()
-        bundle.putSerializable(Constants.MESSAGE_KEY_OPERATOR, operator)
-
-        val message = Message()
-        message.data = bundle
-
-        return message
-    }
-
-    val handler = @SuppressLint("HandlerLeak")
-    object : Handler() {
-        override fun handleMessage(msg: Message?) {
-            super.handleMessage(msg)
-
-            val operator = msg?.data?.get(Constants.MESSAGE_KEY_OPERATOR) as Operator
-            operator.execute()
-        }
     }
 
     private fun getSpecialWebViewClient(): WebViewClient {
@@ -457,7 +386,13 @@ class MainActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 if (StringUtils.startsWith(url, Constants.URL_PREFIX_AD_PAGE)) {
-                    launchTimer()
+                    val operator = object : Operator {
+                        override fun execute() {
+                            browseNextAd()
+                        }
+                    }
+                    timerThread = threadHelper.launchTimer(operator, skipSecond * 1000L)
+
                     val adNumber = StringUtils.substringAfter(selectedAdPage.url, Constants.PARAM_AD_NUMBER)
                     updateStatus("${getString(R.string.loading_ad_page)}$adNumber")
                 }
@@ -487,8 +422,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacksAndMessages(null)
-        stopTimer()
+        threadHelper.handler.removeCallbacksAndMessages(null)
+        threadHelper.stopTimer(timerThread)
     }
 
     internal inner class JavaScriptInterface {
