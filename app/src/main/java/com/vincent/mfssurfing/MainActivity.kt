@@ -35,8 +35,10 @@ class MainActivity : AppCompatActivity() {
 
     private var isSurfRunning: Boolean = false
     private var hasAdSinceLastCheck: Boolean = false
+    private var isCredited: Boolean = false
 
-    private lateinit var timerThread: Thread
+    private var skipTimerThread: Thread? = null
+    private var creditedTimerThread: Thread? = null
 
     private lateinit var preferencesHelper: PreferencesHelper
     private lateinit var threadHelper: ThreadHelper
@@ -213,7 +215,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchSurfingOperation(item: MenuItem) {
         if (isSurfRunning) {
-            threadHelper.stopTimer(timerThread)
+            threadHelper.stopThread(skipTimerThread)
+            threadHelper.stopThread(creditedTimerThread)
 
             updateStatus(getString(R.string.surfing_stopped))
             with(item) {
@@ -310,8 +313,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processCaptchaPage(html: String) {
+        threadHelper.stopThread(creditedTimerThread)
+
         if (!isHandlingCaptchaAllowed) {
-            threadHelper.stopTimer(timerThread)
+            threadHelper.stopThread(skipTimerThread)
             return
         }
 
@@ -329,13 +334,20 @@ class MainActivity : AppCompatActivity() {
         val captchaNumber = StringUtils.substring(
             StringUtils.substringAfter(url, Constants.PARAM_CAPTCHA_NUMBER), 0, 4)
 
-        updateStatus("${getString(R.string.try_captcha_number)}$captchaNumber")
+        updateStatus("${getString(R.string.loading_ad_page)}${selectedAdPage.name}${getString(R.string.try_captcha_number)}$captchaNumber")
         browseUrl(url)
     }
 
     private fun processAdPage() {
-        threadHelper.stopTimer(timerThread)
+        threadHelper.stopThread(skipTimerThread)
         captchaNumberUrlStack.clear()
+
+        if (isCredited) {
+            browseNextAd()
+            return
+        }
+
+        threadHelper.stopThread(creditedTimerThread)
 
         with(selectedAdPage) {
             updateStatus("${getString(R.string.browsing_ad_page)}$name${getString(R.string.time)}$duration${getString(R.string.second)}")
@@ -380,32 +392,44 @@ class MainActivity : AppCompatActivity() {
             StringUtils.substringAfter(adUrl, Constants.PARAM_AD_NUMBER))
     }
 
+    private fun launchSkipTimer() {
+        val operator = object : Operator {
+            override fun execute() {
+                Toast.makeText(applicationContext, getString(R.string.going_to_skip_ad), Toast.LENGTH_SHORT).show()
+                browseNextAd()
+            }
+        }
+        skipTimerThread = threadHelper.startThread(operator, skipSecond * 1000L)
+    }
+
+    private fun launchCreditTimer(creditTimeSecond: Int) {
+        val operator = object : Operator {
+            override fun execute() {
+                isCredited = true
+            }
+        }
+
+        val extraTimeMill = (Math.random() * 500 + 1000).toLong()
+        creditedTimerThread = threadHelper.startThread(operator, creditTimeSecond * 1000 + extraTimeMill)
+    }
+
     private fun getSpecialWebViewClient(): WebViewClient {
         return object : WebViewClient() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 if (StringUtils.startsWith(url, Constants.URL_PREFIX_AD_PAGE)) {
-                    val operator = object : Operator {
-                        override fun execute() {
-                            browseNextAd()
-                        }
-                    }
-                    timerThread = threadHelper.launchTimer(operator, skipSecond * 1000L)
+                    isCredited = false
+                    launchSkipTimer()
+                    launchCreditTimer(selectedAdPage.duration)
 
-                    val adNumber = StringUtils.substringAfter(selectedAdPage.url, Constants.PARAM_AD_NUMBER)
-                    updateStatus("${getString(R.string.loading_ad_page)}$adNumber")
+                    updateStatus("${getString(R.string.loading_ad_page)}${selectedAdPage.name}")
                 }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 webView.loadUrl(Constants.JAVASCRIPT_SYNTAX)
-            }
-
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                super.onReceivedError(view, request, error)
-                //updateStatus(getString(R.string.connection_failed))
             }
 
         }
@@ -422,8 +446,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        threadHelper.stopThread(skipTimerThread)
+        threadHelper.stopThread(creditedTimerThread)
         threadHelper.handler.removeCallbacksAndMessages(null)
-        threadHelper.stopTimer(timerThread)
     }
 
     internal inner class JavaScriptInterface {

@@ -16,11 +16,11 @@
     <string name="ad_clear">已經瀏覽完所有廣告</string>
     <string name="no_ad_can_browse">已經沒有廣告可瀏覽</string>
     <string name="do_not_disturb_surfing">衝浪進行中，請勿切換網頁</string>
-    <string name="connection_failed">無法連線到網頁，請檢查網路連線</string>
+    <string name="going_to_skip_ad">載入時間過久，將自動跳離廣告</string>
 
-    <string name="try_captcha_number">嘗試圖形驗證碼</string>
     <string name="loading_ad_page">載入廣告</string>
     <string name="browsing_ad_page">瀏覽廣告</string>
+    <string name="try_captcha_number">，嘗試驗證碼</string>
     <string name="time">，時間</string>
     <string name="second">秒</string>
 

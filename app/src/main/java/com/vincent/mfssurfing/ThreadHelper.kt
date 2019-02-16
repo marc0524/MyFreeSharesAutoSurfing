@@ -37,23 +37,12 @@ class ThreadHelper {
         startThread(operator, 0)
     }
 
-    fun startThread(operator: Operator, delayTimeMill: Long) {
+    fun startThread(operator: Operator, delayTimeMill: Long): Thread {
         val thread = object : Thread() {
             override fun run() {
                 super.run()
-                handler.sendMessageDelayed(generateMessage(operator), delayTimeMill)
-            }
-        }
-        thread.start()
-    }
-
-    fun launchTimer(operator: Operator, sleepTimeMill: Long): Thread {
-        val thread = object : Thread() {
-            override fun run() {
-                super.run()
-
                 try {
-                    Thread.sleep(sleepTimeMill)
+                    Thread.sleep(delayTimeMill)
                     handler.sendMessage(generateMessage(operator))
                 } catch (e: InterruptedException) {
                 }
@@ -64,9 +53,9 @@ class ThreadHelper {
         return thread
     }
 
-    fun stopTimer(timerThread: Thread) {
-        if (!timerThread.isInterrupted) {
-            timerThread.interrupt()
+    fun stopThread(thread: Thread?) {
+        if (thread != null && thread.isAlive) {
+            thread.interrupt()
         }
     }
 
