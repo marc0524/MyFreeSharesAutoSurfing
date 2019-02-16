@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
-import android.os.Message
 import android.support.design.widget.BottomNavigationView
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -37,11 +35,14 @@ class MainActivity : AppCompatActivity() {
 
     private var isSurfRunning: Boolean = false
     private var hasAdSinceLastCheck: Boolean = false
+    private var isCredited: Boolean = false
 
-    private lateinit var thread: Thread
-    private var timerThread: Thread = Thread()
+    private var skipTimerThread: Thread? = null
+    private var creditedTimerThread: Thread? = null
 
     private lateinit var preferencesHelper: PreferencesHelper
+    private lateinit var threadHelper: ThreadHelper
+
     private var skipSecond: Int = 60
     private var isHandlingCaptchaAllowed: Boolean = true
     private lateinit var ignoredAdNumbers: List<String>
@@ -53,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         ButterKnife.bind(this)
 
         preferencesHelper = PreferencesHelper(this)
+        threadHelper = ThreadHelper()
 
         with(webView) {
             webViewClient = WebViewClient()
@@ -72,7 +74,7 @@ class MainActivity : AppCompatActivity() {
                     if (expandableListView.visibility != View.VISIBLE) {
                         goMFSHome()
                     } else {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     }
                 }
 
@@ -80,15 +82,15 @@ class MainActivity : AppCompatActivity() {
                     if (expandableListView.visibility != View.VISIBLE) {
                         switchSurfingOperation(item)
                     } else {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     }
                 }
 
                 R.id.navSettings -> {
                     if (expandableListView.visibility == View.VISIBLE) {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     } else {
-                        showSettingSection()
+                        displaySettingSection(true)
                     }
                 }
             }
@@ -99,7 +101,7 @@ class MainActivity : AppCompatActivity() {
             when(item.itemId) {
                 R.id.navHome -> {
                     if (expandableListView.visibility == View.VISIBLE) {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     } else {
                         goMFSHome()
                     }
@@ -107,7 +109,7 @@ class MainActivity : AppCompatActivity() {
 
                 R.id.navStartStop -> {
                     if (expandableListView.visibility == View.VISIBLE) {
-                        hideSettingSection()
+                        displaySettingSection(false)
                     } else {
                         switchSurfingOperation(item)
                     }
@@ -127,9 +129,9 @@ class MainActivity : AppCompatActivity() {
         )
 
         val view2 = SettingOptionView(
-            getString(R.string.title_mandatory_jump),
-            getString(R.string.desc_mandatory_jump),
-            getSeekBarOfMandatoryJumpTime(inflater)
+            getString(R.string.title_skip_time),
+            getString(R.string.desc_skip_time),
+            getSeekBarOfBrowsingSkipTime(inflater)
         )
 
         val view3 = SettingOptionView(
@@ -169,20 +171,20 @@ class MainActivity : AppCompatActivity() {
         return radioGroup
     }
 
-    private fun getSeekBarOfMandatoryJumpTime(inflater: LayoutInflater): RelativeLayout {
-        val layout = inflater.inflate(R.layout.seekbar_mandatory_jump_time, null) as RelativeLayout
-        val seekBar = layout.findViewById<SeekBar>(R.id.seekJumpTime)
-        val txtJumpTime = layout.findViewById<TextView>(R.id.txtJumpTime)
+    private fun getSeekBarOfBrowsingSkipTime(inflater: LayoutInflater): RelativeLayout {
+        val layout = inflater.inflate(R.layout.seekbar_browsing_skip_time, null) as RelativeLayout
+        val seekBar = layout.findViewById<SeekBar>(R.id.seekSkipTime)
+        val txtSkipTime = layout.findViewById<TextView>(R.id.txtSkipTime)
 
         skipSecond = preferencesHelper.getAdBrowsingSkipSecond()
-        txtJumpTime.text = getString(R.string.label_jump_time, skipSecond)
-        seekBar.progress = (skipSecond - Constants.MINIMUM_MANDATORY_JUMP_TIME) / 5
+        txtSkipTime.text = getString(R.string.label_skip_time, skipSecond)
+        seekBar.progress = (skipSecond - Constants.MINIMUM_BROWSING_SKIP_TIME) / 5
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
 
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                txtJumpTime.text = getString(R.string.label_jump_time,
-                    progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME)
+                txtSkipTime.text = getString(R.string.label_skip_time,
+                    progress * 5 + Constants.MINIMUM_BROWSING_SKIP_TIME)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
@@ -191,7 +193,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
                 preferencesHelper
-                    .setAdBrowsingSkipSecond(seekBar!!.progress * 5 + Constants.MINIMUM_MANDATORY_JUMP_TIME)
+                    .setAdBrowsingSkipSecond(seekBar!!.progress * 5 + Constants.MINIMUM_BROWSING_SKIP_TIME)
             }
 
         })
@@ -213,7 +215,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchSurfingOperation(item: MenuItem) {
         if (isSurfRunning) {
-            stopTimer()
+            threadHelper.stopThread(skipTimerThread)
+            threadHelper.stopThread(creditedTimerThread)
 
             updateStatus(getString(R.string.surfing_stopped))
             with(item) {
@@ -247,20 +250,20 @@ class MainActivity : AppCompatActivity() {
         isSurfRunning = !isSurfRunning
     }
 
-    private fun showSettingSection() {
-        txtStatus.visibility = View.GONE
-        webView.visibility = View.GONE
-        expandableListView.visibility = View.VISIBLE
-        updateStatus(getString(R.string.stand_by))
+    private fun displaySettingSection(show: Boolean) {
+        if (show) {
+            txtStatus.visibility = View.GONE
+            webView.visibility = View.GONE
+            expandableListView.visibility = View.VISIBLE
+            updateStatus(getString(R.string.stand_by))
+        } else {
+            txtStatus.visibility = View.VISIBLE
+            webView.visibility = View.VISIBLE
+            expandableListView.visibility = View.GONE
+        }
     }
 
-    private fun hideSettingSection() {
-        txtStatus.visibility = View.VISIBLE
-        webView.visibility = View.VISIBLE
-        expandableListView.visibility = View.GONE
-    }
-
-    private fun processAdList(html: String) {
+    private fun processAdListPage(html: String) {
         val adLinkTags: Elements = Jsoup.parse(html)
             .select(Constants.TAG_REGEX_AD)
 
@@ -286,11 +289,11 @@ class MainActivity : AppCompatActivity() {
             adPageStack.addAll(adPageList)
             browseNextAd()
         } else {
-            processNoAdAvailable()
+            processNoAdAvailablePage()
         }
     }
 
-    private fun processNoAdAvailable() {
+    private fun processNoAdAvailablePage() {
         val operator = object : Operator {
             override fun execute() {
                 txtStatus.text = getString(R.string.ad_clear)
@@ -306,12 +309,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        startThread(operator, 0)
+        threadHelper.startThread(operator, 0)
     }
 
-    private fun processCaptcha(html: String) {
+    private fun processCaptchaPage(html: String) {
+        threadHelper.stopThread(creditedTimerThread)
+
         if (!isHandlingCaptchaAllowed) {
-            stopTimer()
+            threadHelper.stopThread(skipTimerThread)
             return
         }
 
@@ -329,13 +334,20 @@ class MainActivity : AppCompatActivity() {
         val captchaNumber = StringUtils.substring(
             StringUtils.substringAfter(url, Constants.PARAM_CAPTCHA_NUMBER), 0, 4)
 
-        updateStatus("${getString(R.string.try_captcha_number)}$captchaNumber")
+        updateStatus("${getString(R.string.loading_ad_page)}${selectedAdPage.name}${getString(R.string.try_captcha_number)}$captchaNumber")
         browseUrl(url)
     }
 
     private fun processAdPage() {
-        stopTimer()
+        threadHelper.stopThread(skipTimerThread)
         captchaNumberUrlStack.clear()
+
+        if (isCredited) {
+            browseNextAd()
+            return
+        }
+
+        threadHelper.stopThread(creditedTimerThread)
 
         with(selectedAdPage) {
             updateStatus("${getString(R.string.browsing_ad_page)}$name${getString(R.string.time)}$duration${getString(R.string.second)}")
@@ -348,7 +360,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            startThread(operator, duration * 1000L)
+            threadHelper.startThread(operator, duration * 1000L)
         }
     }
 
@@ -359,7 +371,7 @@ class MainActivity : AppCompatActivity() {
                 hasAdSinceLastCheck = false
                 browseUrl(selectedAdHomeUrl)
             } else {
-                processNoAdAvailable()
+                processNoAdAvailablePage()
             }
         } else {
             selectedAdPage = adPageStack.pop()
@@ -368,52 +380,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun browseUrl(url: String) {
-        val operator = object : Operator {
-            override fun execute() {
-                webView.loadUrl(url)
-            }
-        }
-
-        startThread(operator, 0)
+        threadHelper.browseUrl(webView, url)
     }
 
     private fun updateStatus(message: String) {
-        val operator = object : Operator {
-            override fun execute() {
-                txtStatus.text = message
-            }
-        }
-
-        startThread(operator, 0)
-    }
-
-    private fun launchTimer() {
-        val operator = object : Operator {
-            override fun execute() {
-                browseNextAd()
-            }
-        }
-
-        timerThread = object : Thread() {
-            override fun run() {
-                super.run()
-
-                try {
-                    Thread.sleep(skipSecond * 1000L)
-                } catch (e: InterruptedException) {
-                    return
-                }
-
-                handler.sendMessage(generateMessage(operator))
-            }
-        }
-        timerThread.start()
-    }
-
-    private fun stopTimer() {
-        if (!timerThread.isInterrupted) {
-            timerThread.interrupt()
-        }
+        threadHelper.updateStatus(txtStatus, message)
     }
 
     private fun isVisitableAd(adUrl: String): Boolean {
@@ -421,34 +392,25 @@ class MainActivity : AppCompatActivity() {
             StringUtils.substringAfter(adUrl, Constants.PARAM_AD_NUMBER))
     }
 
-    private fun startThread(operator: Operator, delayTimeMill: Long) {
-        thread = object : Thread() {
-            override fun run() {
-                super.run()
-                handler.sendMessageDelayed(generateMessage(operator), delayTimeMill)
+    private fun launchSkipTimer() {
+        val operator = object : Operator {
+            override fun execute() {
+                Toast.makeText(applicationContext, getString(R.string.going_to_skip_ad), Toast.LENGTH_SHORT).show()
+                browseNextAd()
             }
         }
-        thread.start()
+        skipTimerThread = threadHelper.startThread(operator, skipSecond * 1000L)
     }
 
-    private fun generateMessage(operator: Operator): Message {
-        val bundle = Bundle()
-        bundle.putSerializable(Constants.MESSAGE_KEY_OPERATOR, operator)
-
-        val message = Message()
-        message.data = bundle
-
-        return message
-    }
-
-    val handler = @SuppressLint("HandlerLeak")
-    object : Handler() {
-        override fun handleMessage(msg: Message?) {
-            super.handleMessage(msg)
-
-            val operator = msg?.data?.get(Constants.MESSAGE_KEY_OPERATOR) as Operator
-            operator.execute()
+    private fun launchCreditTimer(creditTimeSecond: Int) {
+        val operator = object : Operator {
+            override fun execute() {
+                isCredited = true
+            }
         }
+
+        val extraTimeMill = (Math.random() * 500 + 1000).toLong()
+        creditedTimerThread = threadHelper.startThread(operator, creditTimeSecond * 1000 + extraTimeMill)
     }
 
     private fun getSpecialWebViewClient(): WebViewClient {
@@ -457,20 +419,17 @@ class MainActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 if (StringUtils.startsWith(url, Constants.URL_PREFIX_AD_PAGE)) {
-                    launchTimer()
-                    val adNumber = StringUtils.substringAfter(selectedAdPage.url, Constants.PARAM_AD_NUMBER)
-                    updateStatus("${getString(R.string.loading_ad_page)}$adNumber")
+                    isCredited = false
+                    launchSkipTimer()
+                    launchCreditTimer(selectedAdPage.duration)
+
+                    updateStatus("${getString(R.string.loading_ad_page)}${selectedAdPage.name}")
                 }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 webView.loadUrl(Constants.JAVASCRIPT_SYNTAX)
-            }
-
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                super.onReceivedError(view, request, error)
-                //updateStatus(getString(R.string.connection_failed))
             }
 
         }
@@ -487,19 +446,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacksAndMessages(null)
-        stopTimer()
+        threadHelper.stopThread(skipTimerThread)
+        threadHelper.stopThread(creditedTimerThread)
+        threadHelper.handler.removeCallbacksAndMessages(null)
     }
 
     internal inner class JavaScriptInterface {
         @JavascriptInterface
         fun processHTML(html: String) {
             if (StringUtils.containsIgnoreCase(html, Constants.PAGE_TEXT_AD_WORTH)) {
-                processAdList(html)
+                processAdListPage(html)
             } else if (StringUtils.containsIgnoreCase(html, Constants.PAGE_TEXT_NO_ADS_AVAILABLE)) {
-                processNoAdAvailable()
+                processNoAdAvailablePage()
             } else if (StringUtils.containsIgnoreCase(html,Constants.PAGE_TEXT_TURING_TEST)) {
-                processCaptcha(html)
+                processCaptchaPage(html)
             } else {
                 processAdPage()
             }

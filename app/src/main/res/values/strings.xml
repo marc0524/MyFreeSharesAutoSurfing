@@ -16,11 +16,11 @@
     <string name="ad_clear">已經瀏覽完所有廣告</string>
     <string name="no_ad_can_browse">已經沒有廣告可瀏覽</string>
     <string name="do_not_disturb_surfing">衝浪進行中，請勿切換網頁</string>
-    <string name="connection_failed">無法連線到網頁，請檢查網路連線</string>
+    <string name="going_to_skip_ad">載入時間過久，將自動跳離廣告</string>
 
-    <string name="try_captcha_number">嘗試圖形驗證碼</string>
     <string name="loading_ad_page">載入廣告</string>
     <string name="browsing_ad_page">瀏覽廣告</string>
+    <string name="try_captcha_number">，嘗試驗證碼</string>
     <string name="time">，時間</string>
     <string name="second">秒</string>
 
@@ -29,9 +29,9 @@
     <string name="auto_handle">自動處理</string>
     <string name="escape_handle">不處理</string>
 
-    <string name="title_mandatory_jump">強制跳離廣告</string>
-    <string name="desc_mandatory_jump">若廣告載入太久，可設置經過一定時間後，強制離開當前廣告。</string>
-    <string name="label_jump_time">%d秒後跳離</string>
+    <string name="title_skip_time">強制跳離廣告</string>
+    <string name="desc_skip_time">若廣告載入太久，可設置經過一定時間後，強制離開當前廣告。</string>
+    <string name="label_skip_time">%d秒後跳離</string>
 
     <string name="title_ignore_ad">排除廣告名單</string>
     <string name="desc_ignore_ad">忽略不想瀏覽的廣告。例如會扣錢的廣告，或者少數會使衝浪程式受阻的廣告。</string>
@@ -40,7 +40,7 @@
     <string name="ignored">已排除</string>
     <string name="recovered">已恢復</string>
     <string name="recover_ad">即將恢復廣告</string>
-    <string name="will_be_browse">，以後將被瀏覽</string>
+    <string name="will_be_browsed">，以後將被瀏覽</string>
 
     <string name="yes">是</string>
     <string name="no">否</string>
