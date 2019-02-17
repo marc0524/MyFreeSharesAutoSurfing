@@ -1,9 +1,14 @@
 package com.vincent.mfssurfing
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.graphics.Bitmap
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.IBinder
 import android.support.design.widget.BottomNavigationView
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -21,6 +26,9 @@ class MainActivity : AppCompatActivity() {
     // https://www.jianshu.com/p/aa499cc64f72
     // https://www.jianshu.com/p/21068fde1c82
     // https://www.jianshu.com/p/05df9c17a1d8
+    // https://www.jianshu.com/p/5eaa129432bf
+    // https://www.jianshu.com/p/476d3ed50db1
+    // http://blog.maxkit.com.tw/2014/01/android-serviceintentservice.html
 
     @BindView(R.id.txtStatus) lateinit var txtStatus: TextView
     @BindView(R.id.webView) lateinit var webView: WebView
@@ -40,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private var skipTimerThread: Thread? = null
     private var creditedTimerThread: Thread? = null
 
+    private var myService: MyService? = null
     private lateinit var preferencesHelper: PreferencesHelper
     private lateinit var threadHelper: ThreadHelper
 
@@ -56,6 +65,9 @@ class MainActivity : AppCompatActivity() {
         preferencesHelper = PreferencesHelper(this)
         threadHelper = ThreadHelper()
 
+        setupNavigationBar()
+        setupSettingOptions()
+
         with(webView) {
             webViewClient = WebViewClient()
             settings.javaScriptEnabled = true
@@ -63,8 +75,7 @@ class MainActivity : AppCompatActivity() {
             loadUrl(Constants.URL_MFS_HOME)
         }
 
-        setupNavigationBar()
-        setupSettingOptions()
+        bindService(Intent(this, MyService::class.java), serviceCon, Context.BIND_AUTO_CREATE)
     }
 
     private fun setupNavigationBar() {
@@ -207,7 +218,7 @@ class MainActivity : AppCompatActivity() {
         } else if (StringUtils.equals(webView.originalUrl, Constants.URL_MFS_HOME)) {
             Toast.makeText(applicationContext, getString(R.string.landing_home_already), Toast.LENGTH_SHORT).show()
         } else {
-            updateStatus(getString(R.string.stand_by))
+            myService?.updateText(txtStatus, getString(R.string.stand_by))
             webView.webViewClient = WebViewClient()
             webView.loadUrl(Constants.URL_MFS_HOME)
         }
@@ -218,7 +229,7 @@ class MainActivity : AppCompatActivity() {
             threadHelper.stopThread(skipTimerThread)
             threadHelper.stopThread(creditedTimerThread)
 
-            updateStatus(getString(R.string.surfing_stopped))
+            myService?.updateText(txtStatus, getString(R.string.surfing_stopped))
             with(item) {
                 title = getString(R.string.start_surfing)
                 setIcon(R.drawable.icon_start)
@@ -231,7 +242,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            updateStatus(getString(R.string.loading_ad_list))
+            myService?.updateText(txtStatus, getString(R.string.loading_ad_list))
             with(item) {
                 title = getString(R.string.stop_surfing)
                 setIcon(R.drawable.icon_stop)
@@ -255,7 +266,7 @@ class MainActivity : AppCompatActivity() {
             txtStatus.visibility = View.GONE
             webView.visibility = View.GONE
             expandableListView.visibility = View.VISIBLE
-            updateStatus(getString(R.string.stand_by))
+            myService?.updateText(txtStatus, getString(R.string.stand_by))
         } else {
             txtStatus.visibility = View.VISIBLE
             webView.visibility = View.VISIBLE
@@ -334,8 +345,8 @@ class MainActivity : AppCompatActivity() {
         val captchaNumber = StringUtils.substring(
             StringUtils.substringAfter(url, Constants.PARAM_CAPTCHA_NUMBER), 0, 4)
 
-        updateStatus("${getString(R.string.loading_ad_page)}${selectedAdPage.name}${getString(R.string.try_captcha_number)}$captchaNumber")
-        browseUrl(url)
+        myService?.updateText(txtStatus, "${getString(R.string.loading_ad_page)}${selectedAdPage.name}${getString(R.string.try_captcha_number)}$captchaNumber")
+        myService?.browseUrl(webView, url)
     }
 
     private fun processAdPage() {
@@ -350,7 +361,7 @@ class MainActivity : AppCompatActivity() {
         threadHelper.stopThread(creditedTimerThread)
 
         with(selectedAdPage) {
-            updateStatus("${getString(R.string.browsing_ad_page)}$name${getString(R.string.time)}$duration${getString(R.string.second)}")
+            myService?.updateText(txtStatus, "${getString(R.string.browsing_ad_page)}$name${getString(R.string.time)}$duration${getString(R.string.second)}")
 
             val operator = object : Operator {
                 override fun execute() {
@@ -367,24 +378,16 @@ class MainActivity : AppCompatActivity() {
     private fun browseNextAd() {
         if (adPageStack.empty()) {
             if (hasAdSinceLastCheck) {
-                updateStatus(getString(R.string.checking_left_ads))
+                myService?.updateText(txtStatus, getString(R.string.checking_left_ads))
                 hasAdSinceLastCheck = false
-                browseUrl(selectedAdHomeUrl)
+                myService?.browseUrl(webView, selectedAdHomeUrl)
             } else {
                 processNoAdAvailablePage()
             }
         } else {
             selectedAdPage = adPageStack.pop()
-            browseUrl(selectedAdPage.url)
+            myService?.browseUrl(webView, selectedAdPage.url)
         }
-    }
-
-    private fun browseUrl(url: String) {
-        threadHelper.browseUrl(webView, url)
-    }
-
-    private fun updateStatus(message: String) {
-        threadHelper.updateStatus(txtStatus, message)
     }
 
     private fun isVisitableAd(adUrl: String): Boolean {
@@ -423,7 +426,7 @@ class MainActivity : AppCompatActivity() {
                     launchSkipTimer()
                     launchCreditTimer(selectedAdPage.duration)
 
-                    updateStatus("${getString(R.string.loading_ad_page)}${selectedAdPage.name}")
+                    myService?.updateText(txtStatus, "${getString(R.string.loading_ad_page)}${selectedAdPage.name}")
                 }
             }
 
@@ -449,6 +452,17 @@ class MainActivity : AppCompatActivity() {
         threadHelper.stopThread(skipTimerThread)
         threadHelper.stopThread(creditedTimerThread)
         threadHelper.handler.removeCallbacksAndMessages(null)
+        unbindService(serviceCon)
+    }
+
+    private val serviceCon = object : ServiceConnection {
+        override fun onServiceDisconnected(name: ComponentName?) {
+            myService = null
+        }
+
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            myService = (service as MyService.MyBinder).getService()
+        }
     }
 
     internal inner class JavaScriptInterface {

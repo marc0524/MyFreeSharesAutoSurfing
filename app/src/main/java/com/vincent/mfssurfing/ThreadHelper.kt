@@ -19,24 +19,6 @@ class ThreadHelper {
         }
     }
 
-    fun browseUrl(webView: WebView, url: String) {
-        val operator = object : Operator {
-            override fun execute() {
-                webView.loadUrl(url)
-            }
-        }
-        startThread(operator, 0)
-    }
-
-    fun updateStatus(txtStatus: TextView, message: String) {
-        val operator = object : Operator {
-            override fun execute() {
-                txtStatus.text = message
-            }
-        }
-        startThread(operator, 0)
-    }
-
     fun startThread(operator: Operator, delayTimeMill: Long): Thread {
         val thread = object : Thread() {
             override fun run() {
