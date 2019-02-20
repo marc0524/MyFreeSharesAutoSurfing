@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
     @BindView(R.id.lstSettings) lateinit var expandableListView: ExpandableListView
     @BindView(R.id.navBar) lateinit var navBar: BottomNavigationView
 
-    private lateinit var myService: MyService
+    private lateinit var surfService: SurfService
     private lateinit var preferencesHelper: PreferencesHelper
     private lateinit var threadHelper: ThreadHelper
 
@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
             loadUrl(Constants.URL_MFS_HOME)
         }
 
-        bindService(Intent(this, MyService::class.java), serviceCon, Context.BIND_AUTO_CREATE)
+        bindService(Intent(this, SurfService::class.java), serviceCon, Context.BIND_AUTO_CREATE)
     }
 
     private fun setupNavigationBar() {
@@ -191,10 +191,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun goMFSHome() {
-        if (myService.isSurfRunning) {
-            Toast.makeText(applicationContext, getString(R.string.do_not_disturb_surfing), Toast.LENGTH_SHORT).show()
+        if (surfService.isSurfRunning) {
+            Toast.makeText(this@MainActivity, getString(R.string.do_not_disturb_surfing), Toast.LENGTH_SHORT).show()
         } else if (StringUtils.equals(webView.originalUrl, Constants.URL_MFS_HOME)) {
-            Toast.makeText(applicationContext, getString(R.string.landing_home_already), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, getString(R.string.landing_home_already), Toast.LENGTH_SHORT).show()
         } else {
             txtStatus.text = getString(R.string.stand_by)
             webView.webViewClient = WebViewClient()
@@ -203,21 +203,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchSurfingOperation(item: MenuItem) {
-        if (myService.isSurfRunning) {
-            myService.stopSkipTimer()
-            myService.stopCreditTimer()
+        if (surfService.isSurfRunning) {
+            surfService.stopSkipTimer()
+            surfService.stopCreditTimer()
 
-            myService.updateText(txtStatus, getString(R.string.surfing_stopped))
+            surfService.updateText(txtStatus, getString(R.string.surfing_stopped))
             with(item) {
                 title = getString(R.string.start_surfing)
                 setIcon(R.drawable.icon_start)
             }
 
-            myService.isSurfRunning = false
+            surfService.isSurfRunning = false
             webView.webViewClient = WebViewClient()
         } else {
             if (SurfingSpace.fromUrlStartWith(webView.originalUrl) == null) {
-                Toast.makeText(applicationContext, getString(R.string.go_to_surfing_space), Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, getString(R.string.go_to_surfing_space), Toast.LENGTH_SHORT).show()
                 return
             }
 
@@ -227,7 +227,7 @@ class MainActivity : AppCompatActivity() {
                 setIcon(R.drawable.icon_stop)
             }
 
-            myService.startSurfing(onSurfFinishedListener)
+            surfService.startSurfing(onSurfFinishedListener)
         }
     }
 
@@ -236,7 +236,7 @@ class MainActivity : AppCompatActivity() {
             txtStatus.visibility = View.GONE
             webView.visibility = View.GONE
             expandableListView.visibility = View.VISIBLE
-            myService.updateText(txtStatus, getString(R.string.stand_by))
+            surfService.updateText(txtStatus, getString(R.string.stand_by))
         } else {
             txtStatus.visibility = View.VISIBLE
             webView.visibility = View.VISIBLE
@@ -255,8 +255,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         try {
-            myService.stopSkipTimer()
-            myService.stopCreditTimer()
+            surfService.stopSkipTimer()
+            surfService.stopCreditTimer()
         } catch (e: UninitializedPropertyAccessException) {
         }
 
@@ -269,14 +269,14 @@ class MainActivity : AppCompatActivity() {
             val operator = object : Operator {
                 override fun execute() {
                     txtStatus.text = getString(R.string.ad_clear)
-                    Toast.makeText(applicationContext, getString(R.string.no_ad_can_browse), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, getString(R.string.no_ad_can_browse), Toast.LENGTH_SHORT).show()
 
                     with(navBar.menu.findItem(R.id.navStartStop)) {
                         title = getString(R.string.start_surfing)
                         setIcon(R.drawable.icon_start)
                     }
 
-                    myService.isSurfRunning = false
+                    surfService.isSurfRunning = false
                     webView.webViewClient = WebViewClient()
                 }
             }
@@ -290,9 +290,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            myService = (service as MyService.MyBinder).getService(applicationContext)
-            myService.txtStatus = txtStatus
-            myService.webView = webView
+            surfService = (service as SurfService.MyBinder).getService(this@MainActivity, webView, txtStatus)
         }
     }
 

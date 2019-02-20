@@ -16,9 +16,9 @@ import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 import java.util.*
 
-class MyService : Service() {
-    lateinit var txtStatus: TextView
-    lateinit var webView: WebView
+class SurfService : Service() {
+    private lateinit var txtStatus: TextView
+    private lateinit var webView: WebView
 
     private lateinit var context: Context
     private val adPageStack: Stack<AdPage> = Stack()
@@ -114,22 +114,6 @@ class MyService : Service() {
 
     private fun processNoAdAvailablePage() {
         onSurfFinishedListener.finished()
-//        val operator = object : Operator {
-//            override fun execute() {
-//                txtStatus.text = context.getString(R.string.ad_clear)
-//                Toast.makeText(context, context.getString(R.string.no_ad_can_browse), Toast.LENGTH_SHORT).show()
-//
-//                with(navBar.menu.findItem(R.id.navStartStop)) {
-//                    title = context.getString(R.string.start_surfing)
-//                    setIcon(R.drawable.icon_start)
-//                }
-//
-//                isSurfRunning = false
-//                webView.webViewClient = WebViewClient()
-//            }
-//        }
-//
-//        threadHelper.startThread(operator, 0)
     }
 
     private fun processCaptchaPage(html: String) {
@@ -258,9 +242,11 @@ class MyService : Service() {
     }
 
     internal inner class MyBinder : Binder() {
-        fun getService(context: Context) : MyService {
-            val service = MyService()
+        fun getService(context: Context, webView: WebView, txtStatus: TextView) : SurfService {
+            val service = this@SurfService
             service.context = context
+            service.webView = webView
+            service.txtStatus = txtStatus
 
             return service
         }
