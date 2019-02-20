@@ -18,22 +18,11 @@
             android:groupIndicator="@null"
             android:visibility="gone"/>
 
-    <TextView
-            android:id="@+id/txtStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:padding="6dp"
-            android:background="@color/status_bar_background"
-            android:text="@string/stand_by"
-            android:textSize="18sp"/>
-
-    <WebView
-            android:id="@+id/webView"
+    <include
+            layout="@layout/content_surfing_region"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_below="@id/txtStatus"
-            android:layout_above="@id/navBar"/>
+            android:layout_above="@id/navBar" />
 
     <android.support.design.widget.BottomNavigationView
             android:id="@+id/navBar"
