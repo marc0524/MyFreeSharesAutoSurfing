@@ -42,6 +42,10 @@
     <string name="recover_ad">即將恢復廣告</string>
     <string name="will_be_browsed">，以後將被瀏覽</string>
 
+    <string name="surfing_finished">衝浪已結束</string>
+    <string name="spending_time">，費時：</string>
+    <string name="minute">分</string>
+
     <string name="yes">是</string>
     <string name="no">否</string>
 

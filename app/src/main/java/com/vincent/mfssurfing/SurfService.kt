@@ -205,7 +205,7 @@ class SurfService : Service() {
             }
         }
 
-        val extraTimeMill = (Math.random() * 500 + 1000).toLong()
+        val extraTimeMill = (Math.random() * 500 + 1500).toLong()
         creditedTimerThread = threadHelper.startThread(operator, creditTimeSecond * 1000 + extraTimeMill)
     }
 

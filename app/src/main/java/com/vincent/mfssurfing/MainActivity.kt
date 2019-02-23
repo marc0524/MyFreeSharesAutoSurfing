@@ -1,6 +1,8 @@
 package com.vincent.mfssurfing
 
 import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -17,6 +19,8 @@ import android.widget.*
 import butterknife.BindView
 import butterknife.ButterKnife
 import org.apache.commons.lang3.StringUtils
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
     // https://www.jianshu.com/p/aa499cc64f72
@@ -34,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var surfService: SurfService
     private lateinit var preferencesHelper: PreferencesHelper
     private lateinit var threadHelper: ThreadHelper
+
+    private var startTimeMill: Long = 0
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -227,6 +233,7 @@ class MainActivity : AppCompatActivity() {
                 setIcon(R.drawable.icon_stop)
             }
 
+            startTimeMill = System.currentTimeMillis()
             surfService.startSurfing(onSurfFinishedListener)
         }
     }
@@ -242,6 +249,24 @@ class MainActivity : AppCompatActivity() {
             webView.visibility = View.VISIBLE
             expandableListView.visibility = View.GONE
         }
+    }
+
+    private fun showSurfingFinishedNotification(timeMill: Long) {
+        val timePresentation = SimpleDateFormat("mm ${getString(R.string.minute)} ss ${getString(R.string.second)}")
+            .format(Date(timeMill))
+
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val notification = Notification.Builder(this)
+            .setTicker(getString(R.string.surfing_finished))
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText("${getString(R.string.surfing_finished)}${getString(R.string.spending_time)}$timePresentation")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setDefaults(Notification.DEFAULT_VIBRATE)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(0, notification)
     }
 
     override fun onBackPressed() {
@@ -278,6 +303,8 @@ class MainActivity : AppCompatActivity() {
 
                     surfService.isSurfRunning = false
                     webView.webViewClient = WebViewClient()
+
+                    showSurfingFinishedNotification(System.currentTimeMillis() - startTimeMill);
                 }
             }
             threadHelper.startThread(operator, 0)
